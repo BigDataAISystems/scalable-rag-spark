@@ -1,0 +1,8 @@
+sentence-transformers>=3.0
+faiss-cpu>=1.8
+numpy>=1.26
+pandas>=2.2
+datasets>=3.0
+python-dotenv>=1.0
+openai>=1.50
+tqdm>=4.66

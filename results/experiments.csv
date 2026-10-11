@@ -1,0 +1,2 @@
+timestamp,experiment,dataset,embedding_model,embedding_dimension,vector_index,top_k,queries_evaluated,recall_at_k,evaluation_time_sec
+2026-10-10T13:49:40,scifact_dense_top5,SciFact,all-MiniLM-L6-v2,384,FAISS,5,300,0.7533,8.04

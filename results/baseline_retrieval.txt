@@ -1,0 +1,45 @@
+Scalable RAG with Apache Spark
+V1 - SciFact Dense Retrieval Baseline
+
+Date: 2026-10-10 13:49:40
+
+DATASET
+-------
+Dataset: SciFact
+Corpus documents: 5,183
+Queries evaluated: 300
+
+RETRIEVAL CONFIGURATION
+-----------------------
+Embedding model: all-MiniLM-L6-v2
+Embedding dimension: 384
+Vector index: FAISS
+Retrieval method: Dense semantic retrieval
+Top-k: 5
+
+RESULT
+------
+Recall@5: 0.7533
+
+EVALUATION PERFORMANCE
+----------------------
+Evaluation time: 8.04 seconds
+
+Environment:
+Local Windows machine
+Python 3.11.9
+
+NOTES
+-----
+Recall@k measures the proportion of evaluated queries for which
+at least one SciFact-relevant document appeared among the top-k
+retrieved documents.
+
+This metric evaluates retrieval effectiveness.
+
+It does NOT measure the accuracy or quality of the final
+LLM-generated RAG answer.
+
+The FAISS document index was built before this evaluation.
+Index construction time is therefore not included in the
+evaluation time.

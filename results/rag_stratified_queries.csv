@@ -1,0 +1,21 @@
+stratum,query_id,first_relevant_rank,question
+A,100,3,All hematopoietic stem cells segregate their chromosomes randomly.
+A,1012,1,Radioiodine treatment of non-toxic multinodular goitre reduces thyroid volume.
+A,1014,1,Rapamycin decreases the concentration of triacylglycerols in fruit flies.
+A,1020,2,Rapid up-regulation and higher basal expression of interferon-induced genes increase survival of granule cell neurons that are infected by West Nile virus.
+A,1021,2,Rapid up-regulation and higher basal expression of interferon-induced genes reduce survival of granule cell neurons that are infected by West Nile virus.
+B,1,5,0-dimensional biomaterials show inductive properties.
+B,1019,4,Rapid phosphotransfer rates govern fidelity in two component systems
+B,1100,4,Statins increase blood cholesterol.
+B,1132,5,TCR/CD3 microdomains are a required to induce the immunologic synapse to activate T cells.
+B,1196,5,The availability of safe places to study is effective at decreasing homelessness.
+C,1221,8,The genomic aberrations found in matasteses are very similar to those found in the primary tumor.
+C,1245,9,The one-child policy has been successful in lowering population growth.
+C,1281,8,The ureABIEFGH gene cluster is induced by nickel (II) ion.
+C,1337,10,Ubiquitin ligase UBC13 generates a K63-linked polyubiquitin moiety at PCNA K164.
+C,212,6,CR is associated with higher methylation age.
+D,1024,,Recurrent mutations occur frequently within CTCF anchor sites adjacent to oncogenes.
+D,1041,,Replacement of histone H2A with H2A.Z slows gene activation in yeasts by stabilizing +1 nucleosomes.
+D,1049,,Ribosomopathies have a low degree of cell and tissue specific pathology.
+D,1110,,Suboptimal nutrition is not predictive of chronic disease
+D,1175,,The PPR MDA5 has two N-terminal CARD domains.

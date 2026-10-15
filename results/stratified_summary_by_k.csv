@@ -1,0 +1,4 @@
+top_k,runs,evidence_retrieval_rate,groundedness,citation_faithfulness,citation_validity_rate,abstention_correctness,generation_failure_rate,avg_generation_time_sec,avg_context_characters
+3,20,0.25,0.475,0.4167,1.0,0.35,0.0,47.33,4251.6
+5,20,0.5,0.525,0.4167,1.0,0.5,0.0,48.51,6981.9
+10,20,0.75,0.425,0.375,1.0,0.4,0.15,120.84,14320.9

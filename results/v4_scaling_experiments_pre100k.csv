@@ -1,0 +1,4 @@
+subset,documents,queries_evaluated,embedding_model,embedding_dimension,top_k,load_time_sec,model_load_time_sec,document_embedding_time_sec,document_embedding_docs_per_sec,index_build_time_sec,index_size_mb,query_embedding_time_sec,retrieval_time_sec,avg_query_latency_ms,queries_per_sec,recall_at_k,max_observed_rss_mb
+msmarco_1k,1000,300,sentence-transformers/all-MiniLM-L6-v2,384,5,0.0149,2.3677,27.0573,36.9586,0.0008,1.4649,1.0307,0.008104,0.027015,37016.9291,0.9967,611.29
+msmarco_25k,25000,300,sentence-transformers/all-MiniLM-L6-v2,384,5,0.1986,2.4594,825.4622,30.2861,0.022772,36.6211,1.6804,0.347199,1.157331,864.0573,0.98,768.23
+msmarco_50k,50000,300,sentence-transformers/all-MiniLM-L6-v2,384,5,0.3565,2.5321,1629.7635,30.6793,0.029175,73.2422,1.2288,0.77073,2.569101,389.2412,0.9533,887.38

@@ -7,3 +7,5 @@ python-dotenv>=1.0
 openai>=1.50
 tqdm>=4.66
 requests
+psutil
+matplotlib

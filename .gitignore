@@ -13,3 +13,6 @@ data/index/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# V4 generated MS MARCO datasets and indexes
+data/v4/

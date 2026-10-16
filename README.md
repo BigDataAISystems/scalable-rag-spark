@@ -1,18 +1,18 @@
 # Scalable RAG with Apache Spark
 
-A research-oriented project exploring **Retrieval-Augmented Generation (RAG) over increasingly large document collections**, progressing from local semantic retrieval to scalable data processing with Apache Spark.
+A research-oriented project exploring **Retrieval-Augmented Generation (RAG) over increasingly large document collections**, progressing from local semantic retrieval and local LLM generation toward scalable and optimized AI-powered data systems using Apache Spark.
 
-The project is being developed incrementally so that retrieval quality, generation quality, latency, and scalability can be measured at each stage.
+The project is developed incrementally so that **retrieval quality, groundedness, generation quality, latency, context size, and scalability** can be measured at each stage.
 
-> **Current status:** V2 completed — local end-to-end RAG using SciFact, Sentence Transformers, FAISS, Ollama, and Qwen3.
+> **Current status:** V3 completed — semantic retrieval, local end-to-end RAG, and systematic evaluation of retrieval depth, groundedness, citation faithfulness, latency, and context size.
 
 ---
 
-## Project Motivation
+# Project Motivation
 
 Retrieval-Augmented Generation combines information retrieval with Large Language Models (LLMs) so that generated answers can be grounded in external evidence.
 
-A conventional RAG pipeline works well for relatively small document collections:
+A conventional RAG pipeline follows:
 
 ```text
 Documents
@@ -23,16 +23,28 @@ Vector Index
     ↓
 Retrieval
     ↓
+Retrieved Context
+    ↓
 LLM
     ↓
-Answer
+Grounded Answer
 ```
 
-This project asks a broader systems-oriented question:
+This project investigates a broader systems-oriented question:
 
-> **How can RAG pipelines be designed and evaluated as document collections grow from thousands to millions of documents?**
+> **How can RAG pipelines be designed, evaluated, optimized, and scaled as document collections grow from thousands to millions of documents?**
 
-The project begins with a reproducible local baseline and will progressively introduce larger datasets, distributed processing, Apache Spark, and scalability experiments.
+The project begins with a reproducible local baseline and progressively introduces:
+
+- semantic retrieval
+- local LLM generation
+- RAG evaluation
+- groundedness analysis
+- adaptive retrieval
+- larger datasets
+- distributed processing
+- Apache Spark
+- multi-objective and evolutionary optimization
 
 ---
 
@@ -52,10 +64,11 @@ flowchart TD
     G --> H[Grounded Prompt]
     H --> I[Qwen3 1.7B via Ollama]
     I --> J[Grounded Answer + Citations]
-    J --> K[Experiment Log]
+    J --> K[Experiment Logs]
+    K --> L[RAG Evaluation]
 ```
 
-The current implementation runs completely locally.
+The current implementation runs completely locally and does not require a paid LLM API.
 
 ---
 
@@ -85,7 +98,7 @@ Recall@K evaluation
 
 The initial benchmark uses **SciFact**.
 
-Current local dataset statistics:
+Current dataset statistics:
 
 | Item | Count |
 |---|---:|
@@ -93,7 +106,7 @@ Current local dataset statistics:
 | Queries loaded | 1,109 |
 | Queries evaluated in baseline | 300 |
 
-SciFact provides relevance judgments, allowing retrieval effectiveness to be measured rather than evaluated only by visual inspection.
+SciFact provides relevance judgments, allowing retrieval effectiveness to be measured quantitatively.
 
 ### Embedding Model
 
@@ -115,7 +128,7 @@ Document embeddings are indexed using **FAISS**.
 
 Queries are embedded using the same Sentence Transformer model and compared with document vectors using dense semantic similarity.
 
-### V1 Baseline Result
+### V1 Baseline
 
 | Metric | Result |
 |---|---:|
@@ -125,11 +138,11 @@ Queries are embedded using the same Sentence Transformer model and compared with
 | Top-K | 5 |
 | **Recall@5** | **0.7533** |
 
-A Recall@5 of `0.7533` means that for approximately **75.3% of evaluated queries**, at least one SciFact-relevant document appeared among the five retrieved documents.
+A Recall@5 of `0.7533` means that for approximately **75.3% of evaluated queries**, at least one known relevant SciFact document appeared among the five retrieved documents.
 
-This metric measures **retrieval effectiveness**, not final RAG answer accuracy.
+This measures retrieval effectiveness, not final RAG answer quality.
 
-### Local Indexing Observation
+### Initial Indexing Observation
 
 On the initial CPU-based development machine, embedding and indexing the 5,183-document SciFact corpus took approximately:
 
@@ -137,13 +150,13 @@ On the initial CPU-based development machine, embedding and indexing the 5,183-d
 7 minutes 54 seconds
 ```
 
-This measurement motivates later scalability experiments with larger datasets and distributed processing.
+This provides an initial performance baseline for future scalability experiments.
 
 ---
 
 # V2.0 — Local Retrieval-Augmented Generation
 
-V2 extends the V1 retriever into a complete RAG pipeline.
+V2 extends the V1 retriever into a complete local RAG pipeline.
 
 ### V2 Pipeline
 
@@ -154,7 +167,7 @@ Query Embedding
    ↓
 FAISS Retrieval
    ↓
-Top-5 Scientific Documents
+Top-K Scientific Documents
    ↓
 Context Construction
    ↓
@@ -181,7 +194,7 @@ Ollama
 
 This allows the complete RAG pipeline to run without a paid hosted LLM API.
 
-The LLM is responsible only for **generation**.
+The LLM is responsible for **generation**.
 
 Retrieval remains a separate component:
 
@@ -195,7 +208,7 @@ This separation makes it possible to independently evaluate retrieval and genera
 
 ## Grounding Strategy
 
-The retrieved documents are converted into numbered evidence blocks:
+Retrieved documents are converted into numbered evidence blocks:
 
 ```text
 [1]
@@ -209,17 +222,17 @@ Title: ...
 Evidence: ...
 ```
 
-The LLM is instructed to:
+The generator is instructed to:
 
-1. Answer using only the retrieved evidence.
-2. Avoid unsupported claims.
-3. Cite evidence using `[1]`, `[2]`, etc.
-4. Explicitly report when the retrieved evidence is insufficient.
-5. Provide a concise answer and explanation.
+1. answer using only retrieved evidence
+2. avoid unsupported claims
+3. cite evidence using `[1]`, `[2]`, etc.
+4. explicitly report when retrieved evidence is insufficient
+5. provide a concise answer and explanation
 
 ---
 
-# Example V2 RAG Query
+## Example V2 Query
 
 ### Question
 
@@ -227,9 +240,7 @@ The LLM is instructed to:
 Does vitamin D reduce the risk of multiple sclerosis?
 ```
 
-### Top Retrieved Evidence
-
-The highest-ranked document was:
+The highest-ranked retrieved document was:
 
 ```text
 Vitamin D and latitude as environmental factors in multiple sclerosis
@@ -241,13 +252,7 @@ with similarity:
 0.7421
 ```
 
-Other retrieved evidence included literature concerning vitamin D, sun exposure, and multiple sclerosis.
-
-### Generated Answer
-
-The local Qwen3 model produced a grounded response indicating that the retrieved evidence suggests a possible association between vitamin D and reduced multiple-sclerosis risk while also noting that the evidence was insufficient to establish a precise causal relationship.
-
-The generated response included numbered citations corresponding to the retrieved SciFact documents.
+The local Qwen3 model generated an evidence-based response with numbered citations and appropriately expressed uncertainty about establishing a direct causal relationship.
 
 ### Initial Generation Performance
 
@@ -259,7 +264,470 @@ The generated response included numbered citations corresponding to the retrieve
 | Top-K | 5 |
 | Generation time | **84.31 seconds** |
 
-The relatively high latency provides another baseline for future hardware and model comparisons.
+This latency measurement provides a baseline for future model, hardware, and scalability comparisons.
+
+---
+
+# V3.0 — RAG Evaluation & Retrieval Experiments
+
+V3 moves beyond building the RAG pipeline and systematically evaluates how **retrieval depth (Top-K)** affects retrieval effectiveness and downstream RAG behavior.
+
+The central research question is:
+
+> **Does retrieving more documents necessarily produce better RAG answers?**
+
+The experiments demonstrate that higher retrieval recall does **not** automatically translate into higher end-to-end RAG quality.
+
+---
+
+## Experiment 1 — Retrieval Depth
+
+Retrieval was evaluated on 300 SciFact queries using:
+
+```text
+K = {1, 3, 5, 10, 20}
+```
+
+### Results
+
+| K | Recall@K | Evaluation Time |
+|---:|---:|---:|
+| 1 | 0.5033 | 6.39 s |
+| 3 | 0.6833 | 6.25 s |
+| 5 | 0.7533 | 6.16 s |
+| 10 | 0.7933 | 6.12 s |
+| 20 | **0.8467** | 6.19 s |
+
+As expected:
+
+```text
+K ↑ → Recall@K ↑
+```
+
+However, Recall@K measures whether relevant evidence is retrieved.
+
+It does not measure whether the LLM successfully identifies and uses that evidence.
+
+---
+
+# Experiment 2 — Initial RAG Top-K Pilot
+
+A five-query pilot evaluated:
+
+```text
+K = {1, 3, 5, 10}
+```
+
+producing:
+
+```text
+5 queries × 4 K values = 20 RAG runs
+```
+
+For each run, the experiment recorded:
+
+- query ID
+- K
+- relevant-document retrieval
+- first relevant-document rank
+- retrieval scores
+- context size
+- generation latency
+- citations
+- generated answer
+
+### Pilot Results
+
+| K | Relevant Evidence Retrieved | Avg. Context | Avg. Generation Time | Avg. Citations |
+|---:|---:|---:|---:|---:|
+| 1 | 0.40 | 1,361 | 24.81 s | 0.8 |
+| 3 | 0.60 | 4,051 | 38.10 s | 1.4 |
+| 5 | **1.00** | 6,549 | 43.07 s | 1.4 |
+| 10 | **1.00** | 14,438 | **91.71 s** | 0.8 |
+
+The pilot showed that citation presence alone does not guarantee that the cited evidence actually supports the generated claim.
+
+This motivated explicit groundedness evaluation.
+
+---
+
+# Experiment 3 — Groundedness & Citation Evaluation
+
+V3 introduces human-style evaluation of generated answers.
+
+## Groundedness
+
+```text
+2 = substantive claims directly supported by retrieved evidence
+
+1 = partially supported or stronger than the available evidence
+
+0 = central answer unsupported, contradictory, or off-topic
+```
+
+Scores are normalized to the range:
+
+```text
+0–1
+```
+
+## Citation Faithfulness
+
+```text
+2 = cited evidence directly supports the associated claim
+
+1 = cited evidence provides partial or indirect support
+
+0 = citation does not support the claim
+```
+
+## Citation Validity
+
+```text
+1 = citation refers to an actual retrieved document
+
+0 = citation refers to an invalid/nonexistent document
+```
+
+Citation validity and citation faithfulness are deliberately treated as different concepts.
+
+A citation can be syntactically valid while failing to support the claim attributed to it.
+
+## Abstention Correctness
+
+```text
+1 = model appropriately answers when evidence is sufficient
+    or appropriately reports insufficient evidence
+
+0 = model confidently answers despite insufficient evidence
+    or unnecessarily abstains despite adequate evidence
+```
+
+---
+
+# Experiment 4 — Stratified RAG Evaluation
+
+To more carefully study the relationship between retrieval and generation, V3 introduces a controlled **stratified RAG experiment**.
+
+Queries were grouped according to the rank of their first known relevant document.
+
+| Stratum | Relevant Document Rank | Interpretation |
+|---|---|---|
+| A | 1–3 | Evidence available at K=3 |
+| B | 4–5 | Evidence first available at K=5 |
+| C | 6–10 | Evidence first available at K=10 |
+| D | Not retrieved in Top-10 | Evidence unavailable for tested K |
+
+Five queries were selected from each stratum.
+
+Therefore:
+
+```text
+4 strata × 5 queries = 20 queries
+```
+
+Each query was evaluated using:
+
+```text
+K = {3, 5, 10}
+```
+
+producing:
+
+```text
+20 queries × 3 retrieval depths = 60 RAG runs
+```
+
+Each run records:
+
+- retrieval success
+- retrieved evidence
+- relevant-document rank
+- context size
+- generation latency
+- generated citations
+- generated answer
+- groundedness
+- citation faithfulness
+- citation validity
+- abstention behavior
+- generation failures
+
+---
+
+# Overall V3 Results
+
+| K | Evidence Retrieval* | Groundedness | Citation Faithfulness | Generation Failure | Avg. Generation Time | Avg. Context |
+|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 0.25 | 0.475 | 0.4167 | 0.00 | 47.33 s | 4,252 |
+| **5** | **0.50** | **0.525** | **0.4167** | **0.00** | **48.51 s** | **6,982** |
+| 10 | 0.75 | 0.425 | 0.3750 | 0.15 | 120.84 s | 14,321 |
+
+\*Evidence-retrieval rates in this table come from the intentionally stratified 20-query sample and are **not corpus-level Recall@K values**.
+
+For the current experimental setup, **K=5 provides the strongest observed overall balance** between evidence coverage, groundedness, latency, and reliability.
+
+---
+
+# Key V3 Finding
+
+Moving from:
+
+```text
+K=3 → K=5
+```
+
+increased evidence retrieval in the stratified sample:
+
+```text
+0.25 → 0.50
+```
+
+and increased groundedness:
+
+```text
+0.475 → 0.525
+```
+
+while average generation time changed only slightly:
+
+```text
+47.33 s → 48.51 s
+```
+
+However, moving to K=10 increased evidence retrieval while degrading several downstream metrics.
+
+Average generation latency increased:
+
+```text
+48.51 s → 120.84 s
+```
+
+Average context size increased:
+
+```text
+6,982 → 14,321 characters
+```
+
+Groundedness decreased:
+
+```text
+0.525 → 0.425
+```
+
+and the generation failure rate increased to:
+
+```text
+15%
+```
+
+Therefore:
+
+> **Maximizing retrieval recall does not necessarily maximize end-to-end RAG quality.**
+
+---
+
+# When Increasing K Helps
+
+Stratum B was designed so that relevant evidence appears at ranks 4–5.
+
+Therefore:
+
+```text
+K=3 → relevant evidence absent
+K=5 → relevant evidence present
+```
+
+Observed groundedness:
+
+```text
+K=3 → 0.40
+K=5 → 0.60
+```
+
+This demonstrates that increasing retrieval depth can improve RAG quality when the additional retrieval introduces genuinely useful evidence.
+
+---
+
+# When Increasing K Hurts
+
+For Stratum A, relevant evidence is already present within the first three documents.
+
+Results:
+
+| K | Retrieval | Groundedness | Faithfulness | Failure | Avg. Time |
+|---:|---:|---:|---:|---:|---:|
+| 3 | 1.00 | **0.70** | **0.70** | 0.00 | 42.59 s |
+| 5 | 1.00 | **0.70** | **0.70** | 0.00 | 49.23 s |
+| 10 | 1.00 | 0.50 | 0.50 | 0.20 | 118.69 s |
+
+Increasing K provides no retrieval benefit in this stratum because relevant evidence is already available.
+
+However, K=10:
+
+- reduces groundedness
+- reduces citation faithfulness
+- substantially increases latency
+- introduces generation failures
+
+This provides evidence of **context dilution or context pollution** for the current small local model.
+
+---
+
+# Retrieval Success Is Not Sufficient
+
+Stratum C was designed so that relevant evidence first appears at ranks 6–10.
+
+Therefore:
+
+```text
+K=5  → relevant evidence absent
+K=10 → relevant evidence present
+```
+
+Yet groundedness remained:
+
+```text
+0.30 → 0.30
+```
+
+while average generation latency increased substantially.
+
+This demonstrates an important distinction:
+
+> **Retrieving relevant evidence is necessary in many cases, but it is not sufficient to guarantee that the generator will successfully use that evidence.**
+
+---
+
+# Toward Adaptive RAG
+
+The V3 results raise a broader question:
+
+> **Why should every query use the same K?**
+
+Some queries may need only:
+
+```text
+K=3
+```
+
+while others may benefit from:
+
+```text
+K=5
+```
+
+and difficult queries may require deeper retrieval, reranking, or abstention.
+
+Instead of:
+
+```text
+K = constant
+```
+
+future versions can investigate:
+
+```text
+K = f(
+    query,
+    retrieval scores,
+    score gaps,
+    retrieval confidence,
+    evidence quality,
+    context cost
+)
+```
+
+Conceptually:
+
+```text
+Question
+   ↓
+Initial Retrieval
+   ↓
+Evidence sufficient?
+   ├── Yes
+   │    ↓
+   │ Generate
+   │
+   └── No
+        ↓
+   Expand Retrieval
+        ↓
+   Rerank / Filter
+        ↓
+   Evidence sufficient?
+        ├── Yes → Generate
+        └── No  → Abstain
+```
+
+This provides the foundation for **adaptive retrieval**.
+
+---
+
+# Multi-Objective RAG Optimization
+
+V3 also shows that RAG configuration naturally forms a multi-objective optimization problem.
+
+Possible objectives include:
+
+\[
+\max \; Recall
+\]
+
+\[
+\max \; Groundedness
+\]
+
+\[
+\max \; CitationFaithfulness
+\]
+
+while simultaneously:
+
+\[
+\min \; GenerationLatency
+\]
+
+\[
+\min \; ContextSize
+\]
+
+\[
+\min \; GenerationFailures
+\]
+
+These objectives can conflict.
+
+For example:
+
+```text
+Higher K
+   ↓
+Higher Recall
+```
+
+may also produce:
+
+```text
+Higher K
+   ↓
+Larger Context
+   ↓
+Higher Latency
+   ↓
+More Noise
+   ↓
+Lower Groundedness
+```
+
+This motivates future research using **evolutionary algorithms and multi-objective optimization** to identify efficient RAG configurations and adaptive retrieval policies.
+
+Detailed V3 methodology, per-stratum results, limitations, and experimental artifacts are available in:
+
+```text
+docs/v3-experiments.md
+```
 
 ---
 
@@ -271,11 +739,14 @@ The relatively high latency provides another baseline for future hardware and mo
 | Dataset | SciFact |
 | Embeddings | Sentence Transformers |
 | Embedding model | all-MiniLM-L6-v2 |
+| Embedding dimension | 384 |
 | Vector index | FAISS |
 | Local LLM runtime | Ollama |
 | Generator | Qwen3 1.7B |
 | Experiment logging | CSV / JSONL |
+| RAG evaluation | Groundedness, citation faithfulness, abstention |
 | Future distributed processing | Apache Spark / PySpark |
+| Optimization direction | Evolutionary / multi-objective optimization |
 
 ---
 
@@ -297,12 +768,22 @@ scalable-rag-spark/
 │   ├── architecture.md
 │   ├── rag-concepts.md
 │   ├── rag-v2.md
-│   └── research-questions.md
+│   ├── research-questions.md
+│   └── v3-experiments.md
 │
 ├── results/
 │   ├── baseline_retrieval.txt
 │   ├── experiments.csv
-│   └── rag_runs.jsonl
+│   ├── rag_runs.jsonl
+│   ├── topk_experiment.csv
+│   ├── rag_topk_experiment.csv
+│   ├── rag_topk_experiment.jsonl
+│   ├── groundedness_summary.csv
+│   ├── rag_stratified_queries.csv
+│   ├── rag_stratified_experiment.csv
+│   ├── rag_stratified_experiment.jsonl
+│   ├── stratified_summary_by_k.csv
+│   └── stratified_summary_by_group_k.csv
 │
 └── src/
     ├── config.py
@@ -310,7 +791,14 @@ scalable-rag-spark/
     ├── build_index.py
     ├── retrieve.py
     ├── evaluate_retrieval.py
-    └── rag.py
+    ├── rag.py
+    ├── evaluate_topk.py
+    ├── evaluate_rag_topk.py
+    ├── prepare_groundedness_evaluation.py
+    ├── analyze_groundedness.py
+    ├── evaluate_rag_stratified.py
+    ├── prepare_stratified_groundedness.py
+    └── analyze_stratified_groundedness.py
 ```
 
 Generated vector-index files under `data/index/` are not intended to be committed to Git. They can be reproduced using the indexing pipeline.
@@ -342,7 +830,7 @@ pip install -r requirements.txt
 python src\load_scifact.py
 ```
 
-Expected corpus size:
+Expected:
 
 ```text
 Corpus documents: 5,183
@@ -372,38 +860,29 @@ Enter a scientific query when prompted.
 
 ---
 
-## 5. Evaluate Retrieval
+## 5. Evaluate Baseline Retrieval
 
 ```powershell
 python src\evaluate_retrieval.py
 ```
 
-Evaluation results are recorded under:
+The initial baseline is:
 
 ```text
-results/
-```
-
-including:
-
-```text
-baseline_retrieval.txt
-experiments.csv
+Recall@5 = 0.7533
 ```
 
 ---
 
-# Running V2 RAG
+# Running Local RAG
 
-## Install Ollama
-
-Install Ollama for your operating system and verify:
+Install Ollama and verify:
 
 ```powershell
 ollama --version
 ```
 
-Pull the current local model:
+Pull the current model:
 
 ```powershell
 ollama pull qwen3:1.7b
@@ -419,7 +898,7 @@ ollama list
 
 ## Configure the Project
 
-Create a local `.env` file based on:
+Create a local `.env` based on:
 
 ```text
 .env.example
@@ -433,7 +912,7 @@ OLLAMA_MODEL=qwen3:1.7b
 OLLAMA_URL=http://localhost:11434
 ```
 
-The `.env` file is excluded from Git and should not be committed.
+The `.env` file is excluded from Git and should never be committed.
 
 ---
 
@@ -445,135 +924,124 @@ python src\rag.py
 
 The system will:
 
-1. Accept a question.
-2. Embed the question.
-3. Retrieve the Top-K SciFact documents.
-4. Construct the RAG context.
-5. Send the grounded prompt to the local LLM.
-6. Return an answer with source citations.
-7. Log the run.
+1. accept a question
+2. embed the question
+3. retrieve Top-K SciFact documents
+4. construct the RAG context
+5. send the grounded prompt to the local LLM
+6. return an answer with citations
+7. log the run
 
-RAG runs are recorded in:
+RAG runs are recorded under:
 
 ```text
-results/rag_runs.jsonl
+results/
 ```
 
 ---
 
-# Experiment Tracking
+# Running V3 Experiments
 
-Retrieval experiments are stored in:
+## Recall@K
 
-```text
-results/experiments.csv
+```powershell
+python src\evaluate_topk.py
 ```
 
-Current baseline:
+Evaluates:
 
 ```text
-Dataset: SciFact
-Embedding model: all-MiniLM-L6-v2
-Embedding dimension: 384
-Vector index: FAISS
-Top-K: 5
-Queries evaluated: 300
-Recall@5: 0.7533
+K = {1, 3, 5, 10, 20}
 ```
-
-RAG generation runs are stored separately in:
-
-```text
-results/rag_runs.jsonl
-```
-
-This allows retrieval and generation experiments to be analyzed independently.
 
 ---
 
-# Planned Experiments
+## RAG Top-K Pilot
 
-## Retrieval
-
-Future experiments will investigate:
-
-- Recall@1
-- Recall@3
-- Recall@5
-- Recall@10
-- Recall@20
-- Alternative embedding models
-- Chunking strategies
-- Hybrid retrieval
-- Reranking
-
----
-
-## RAG Quality
-
-Generation experiments will investigate:
-
-- Citation correctness
-- Evidence faithfulness
-- Unsupported claims
-- Insufficient-evidence behavior
-- Prompt design
-- Top-K effects
-- Generation latency
-
----
-
-## Model Comparison
-
-Future versions may compare:
-
-```text
-Local small LLM
-      vs.
-Larger local LLM
-      vs.
-Hosted LLM
+```powershell
+python src\evaluate_rag_topk.py
 ```
 
-using:
+---
 
-- answer quality
-- groundedness
-- latency
-- resource usage
-- cost
+## Prepare Groundedness Evaluation
+
+```powershell
+python src\prepare_groundedness_evaluation.py
+```
+
+---
+
+## Analyze Groundedness
+
+```powershell
+python src\analyze_groundedness.py
+```
+
+---
+
+## Stratified RAG Experiment
+
+```powershell
+python src\evaluate_rag_stratified.py
+```
+
+---
+
+## Prepare Stratified Evaluation
+
+```powershell
+python src\prepare_stratified_groundedness.py
+```
+
+---
+
+## Analyze Stratified Results
+
+```powershell
+python src\analyze_stratified_groundedness.py
+```
+
+---
+
+# Current Research Directions
+
+V3 established retrieval-depth and groundedness baselines.
+
+Current research directions include:
+
+- adaptive Top-K retrieval
+- retrieval-confidence estimation
+- reranking
+- hybrid retrieval
+- alternative embedding models
+- larger document collections
+- generator comparison
+- multi-objective RAG optimization
+- evolutionary optimization of RAG configurations
+- distributed RAG preprocessing with Apache Spark
 
 ---
 
 # Scaling Roadmap
 
-The project intentionally begins with a small benchmark before introducing distributed infrastructure.
-
 ```text
-V1
-SciFact + FAISS Retrieval
+V1  Semantic Retrieval                         ✅
         ↓
-V2
-Local RAG
+V2  Local End-to-End RAG                       ✅
         ↓
-V3
-RAG Evaluation & Retrieval Experiments
+V3  RAG Evaluation & Top-K Experiments         ✅
         ↓
-V4
-TREC-COVID (~171K documents)
+V4  Larger Corpus & Scalability                ← NEXT
         ↓
-V5
-Apache Spark / PySpark
+V5  Apache Spark / Distributed Processing
         ↓
-V6
-MS MARCO subsets
-100K → 1M passages
+V6  Million-Scale Retrieval Experiments
         ↓
-V7
-Large-scale distributed RAG experiments
+V7  Adaptive & Evolutionary RAG Optimization
 ```
 
-The objective is to identify **when and where distributed data processing becomes beneficial**, rather than introducing Spark before the workload requires it.
+The objective is to introduce distributed infrastructure when the workload justifies it rather than adding Spark before it is needed.
 
 ---
 
@@ -586,10 +1054,14 @@ The broader project investigates questions such as:
 - When does single-machine preprocessing become a bottleneck?
 - How can Apache Spark improve RAG ingestion and embedding pipelines?
 - How should large embedding collections be partitioned and indexed?
-- What trade-offs exist between retrieval quality, latency, and cost?
-- How does Top-K affect RAG groundedness and answer quality?
+- What trade-offs exist between retrieval quality, latency, and context size?
+- How does Top-K affect RAG groundedness and citation faithfulness?
+- When does additional retrieved context help or hurt generation?
+- Can retrieval confidence determine an adaptive K?
 - How reliably do LLM citations correspond to retrieved evidence?
 - How do local and hosted LLMs compare for RAG workloads?
+- Can evolutionary algorithms optimize RAG configurations?
+- What Pareto trade-offs exist among quality, latency, context size, and resource usage?
 
 ---
 
@@ -602,9 +1074,9 @@ Completed:
 - SciFact loading
 - Sentence Transformer embeddings
 - FAISS indexing
-- Semantic search
+- semantic search
 - Recall@K evaluation
-- Experiment logging
+- experiment logging
 
 Baseline:
 
@@ -618,15 +1090,15 @@ Recall@5 = 0.7533
 
 Completed:
 
-- Context construction
-- Grounded prompting
-- Local LLM generation
+- context construction
+- grounded prompting
+- local LLM generation
 - Ollama integration
 - Qwen3 1.7B integration
-- Numbered source citations
+- numbered source citations
 - RAG run logging
 
-Initial generation:
+Initial measured generation:
 
 ```text
 84.31 seconds
@@ -636,29 +1108,51 @@ on the initial CPU-only development machine.
 
 ---
 
-# Future Direction: Apache Spark
+## v3.0 — RAG Evaluation & Retrieval Experiments
 
-The eventual focus of this project is not simply building another RAG application.
+Completed:
 
-The longer-term objective is to investigate:
+- Recall@K evaluation over 300 SciFact queries
+- RAG Top-K pilot experiments
+- groundedness evaluation
+- citation-faithfulness evaluation
+- abstention evaluation
+- stratified retrieval experiment
+- 60-run controlled RAG evaluation
+- context-size measurement
+- generation-latency measurement
+- generation-failure analysis
 
-> **Scalable RAG data pipelines for large document collections using distributed data processing.**
+Retrieval results:
 
-Future versions will introduce Apache Spark for:
+```text
+Recall@1  = 0.5033
+Recall@3  = 0.6833
+Recall@5  = 0.7533
+Recall@10 = 0.7933
+Recall@20 = 0.8467
+```
 
-- distributed document ingestion
-- text preprocessing
-- chunk generation
-- embedding pipelines
-- batch processing
-- scalability experiments
+In the controlled stratified RAG experiment, **K=5 provided the strongest observed balance** between retrieval coverage, groundedness, and generation cost.
 
-The resulting distributed architecture will conceptually evolve toward:
+The experiments also demonstrated that:
+
+> **Higher retrieval recall does not necessarily produce better end-to-end RAG quality.**
+
+---
+
+# Future Direction — Larger-Scale RAG
+
+V4 will begin increasing corpus size and measuring how the existing RAG architecture behaves as the workload grows.
+
+The project will progressively evolve toward:
 
 ```text
 Large Document Collection
           ↓
      Apache Spark
+          ↓
+Distributed Ingestion
           ↓
 Distributed Preprocessing
           ↓
@@ -670,10 +1164,71 @@ Vector Index
           ↓
 Retrieval
           ↓
-RAG
+Adaptive RAG
           ↓
 LLM
 ```
+
+Future scalability measurements will include:
+
+- ingestion time
+- preprocessing time
+- embedding time
+- index construction time
+- index size
+- retrieval latency
+- memory consumption
+- generation latency
+- context size
+- groundedness
+- retrieval quality
+
+The longer-term objective is not simply to build another RAG application.
+
+It is to investigate:
+
+> **Scalable and optimized AI-powered data systems for large document collections.**
+
+---
+
+# Future Direction — Evolutionary Optimization
+
+The V3 experiments show that RAG configuration involves competing objectives.
+
+Future research will investigate evolutionary and multi-objective optimization of variables such as:
+
+- retrieval depth
+- chunk size
+- chunk overlap
+- embedding configuration
+- retrieval thresholds
+- reranking parameters
+- context size
+- Spark configuration
+- resource allocation
+
+Potential objectives include:
+
+```text
+maximize:
+    retrieval quality
+    groundedness
+    citation faithfulness
+
+minimize:
+    latency
+    context size
+    resource usage
+    generation failures
+```
+
+This provides a foundation for future research on:
+
+- adaptive RAG
+- evolutionary RAG optimization
+- Pareto-optimal RAG configurations
+- distributed RAG optimization
+- resource-aware AI systems
 
 ---
 
@@ -682,13 +1237,14 @@ LLM
 This project is part of **Big Data & AI Systems**, a collection of research and open-source projects exploring:
 
 - Big Data
-- Distributed Data Processing
-- Cloud Computing
-- Data Engineering
-- AI-Powered Data Systems
+- distributed data processing
+- cloud computing
+- data engineering
+- AI-powered data systems
 - Retrieval-Augmented Generation
-- Vector Search
-- LLM-Powered Analytics
+- vector search
+- LLM-powered analytics
+- optimization of AI and data systems
 
 Organization:
 

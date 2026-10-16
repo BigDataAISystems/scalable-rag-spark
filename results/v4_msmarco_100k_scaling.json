@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-10-16T09:19:05",
+  "subset": "msmarco_100k",
+  "documents": 100000,
+  "queries_evaluated": 300,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_dimension": 384,
+  "top_k": 5,
+  "total_pipeline_time_sec": 3178.7358,
+  "load_time_sec": 0.6763,
+  "model_load_time_sec": 2.7702,
+  "document_embedding_time_sec": 3171.4882,
+  "document_embedding_docs_per_sec": 31.5309,
+  "index_build_time_sec": 0.068688,
+  "index_size_mb": 146.4844,
+  "query_embedding_time_sec": 1.6355,
+  "retrieval_time_sec": 1.542494,
+  "avg_query_latency_ms": 5.141648,
+  "queries_per_sec": 194.4902,
+  "recall_at_k": 0.94,
+  "max_observed_rss_mb": 1235.05
+}

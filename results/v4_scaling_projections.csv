@@ -1,0 +1,4 @@
+documents,projected_embedding_time_sec,projected_embedding_time_min,projected_embedding_time_hr,projected_index_size_mb,projected_index_size_gb,projected_avg_query_latency_ms,projected_max_observed_rss_mb,embedding_linear_fit_r2,index_linear_fit_r2,latency_linear_fit_r2,memory_linear_fit_r2,projection_status
+250000,10393.6,173.23,2.89,366.21,0.358,14.185,1776.65,0.988803,1.0,0.998334,0.973082,PROJECTED_NOT_MEASURED
+500000,21200.38,353.34,5.89,732.42,0.715,28.655,2884.66,0.988803,1.0,0.998334,0.973082,PROJECTED_NOT_MEASURED
+1000000,42813.92,713.57,11.89,1464.84,1.431,57.595,5100.67,0.988803,1.0,0.998334,0.973082,PROJECTED_NOT_MEASURED

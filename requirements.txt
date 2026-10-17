@@ -9,3 +9,4 @@ tqdm>=4.66
 requests
 psutil
 matplotlib
+pyspark==3.5.9

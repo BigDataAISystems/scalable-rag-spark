@@ -1,1029 +1,54 @@
 # Scalable RAG with Apache Spark
 
-A research-oriented project exploring **Retrieval-Augmented Generation (RAG) over increasingly large document collections**, progressing from local semantic retrieval and local LLM generation toward scalable and optimized AI-powered data systems using Apache Spark.
+A research-oriented implementation of **Retrieval-Augmented Generation (RAG)** focused on retrieval quality, evidence grounding, corpus scalability, and distributed AI processing.
 
-The project is developed incrementally so that **retrieval quality, groundedness, generation quality, latency, context size, and scalability** can be measured at each stage.
+The project progressively evolves from a local semantic-retrieval prototype into an experimentally evaluated, scalable RAG architecture using:
 
-> **Current status:** V3 completed — semantic retrieval, local end-to-end RAG, and systematic evaluation of retrieval depth, groundedness, citation faithfulness, latency, and context size.
-
----
-
-# Project Motivation
-
-Retrieval-Augmented Generation combines information retrieval with Large Language Models (LLMs) so that generated answers can be grounded in external evidence.
-
-A conventional RAG pipeline follows:
-
-```text
-Documents
-    ↓
-Embeddings
-    ↓
-Vector Index
-    ↓
-Retrieval
-    ↓
-Retrieved Context
-    ↓
-LLM
-    ↓
-Grounded Answer
-```
-
-This project investigates a broader systems-oriented question:
-
-> **How can RAG pipelines be designed, evaluated, optimized, and scaled as document collections grow from thousands to millions of documents?**
-
-The project begins with a reproducible local baseline and progressively introduces:
-
-- semantic retrieval
-- local LLM generation
-- RAG evaluation
-- groundedness analysis
-- adaptive retrieval
-- larger datasets
-- distributed processing
+- Sentence Transformers
+- FAISS
+- Large Language Models
+- MS MARCO
 - Apache Spark
-- multi-objective and evolutionary optimization
+- distributed embedding
+- systematic retrieval and groundedness evaluation
+
+The broader goal is to study how **retrieval quality, RAG reliability, computational cost, and distributed-system design interact as document collections grow**.
+
+> **Current status:** V5 completed. The project now includes semantic retrieval, local RAG, systematic RAG evaluation, controlled MS MARCO scalability experiments from 1K to 250K documents, and Apache Spark embedding experiments. V5 demonstrates that local Spark provides a scalable execution architecture but does not materially accelerate MiniLM embedding when workers share the same physical CPU resources. Spark-native corpus ingestion now provides the foundation for true distributed execution in V6.
 
 ---
 
-# Current Architecture
+# Research Questions
 
-```mermaid
-flowchart TD
-    A[SciFact Scientific Corpus] --> B[Sentence Transformer]
-    B --> C[384-D Document Embeddings]
-    C --> D[(FAISS Vector Index)]
+The project investigates several related questions.
 
-    Q[User Question] --> E[Query Embedding]
-    E --> D
+## Retrieval Quality
 
-    D --> F[Top-K Retrieved Documents]
-    F --> G[RAG Context Builder]
-    G --> H[Grounded Prompt]
-    H --> I[Qwen3 1.7B via Ollama]
-    I --> J[Grounded Answer + Citations]
-    J --> K[Experiment Logs]
-    K --> L[RAG Evaluation]
-```
+How do embedding models, retrieval depth, corpus size, and competing documents affect the probability of retrieving relevant evidence?
 
-The current implementation runs completely locally and does not require a paid LLM API.
+## RAG Groundedness
+
+When relevant evidence is retrieved, does the generated answer remain grounded in that evidence?
+
+## Citation Reliability
+
+Are generated citations valid and faithful to the retrieved context?
+
+## Corpus Scalability
+
+How do embedding time, vector-index size, memory consumption, retrieval latency, and retrieval quality change as the corpus grows?
+
+## Distributed Processing
+
+Can Apache Spark reduce the document-embedding bottleneck when additional compute resources are available?
+
+## Adaptive Optimization
+
+Can future RAG systems automatically optimize retrieval depth, distributed-system configuration, latency, cost, and answer quality?
 
 ---
 
 # Project Evolution
-
-## V1.0 — Semantic Retrieval Baseline
-
-V1 established the retrieval component independently of an LLM.
-
-### Pipeline
-
-```text
-SciFact
-   ↓
-all-MiniLM-L6-v2
-   ↓
-384-dimensional embeddings
-   ↓
-FAISS
-   ↓
-Top-K semantic retrieval
-   ↓
-Recall@K evaluation
-```
-
-### Dataset
-
-The initial benchmark uses **SciFact**.
-
-Current dataset statistics:
-
-| Item | Count |
-|---|---:|
-| Corpus documents | 5,183 |
-| Queries loaded | 1,109 |
-| Queries evaluated in baseline | 300 |
-
-SciFact provides relevance judgments, allowing retrieval effectiveness to be measured quantitatively.
-
-### Embedding Model
-
-V1 uses:
-
-```text
-sentence-transformers/all-MiniLM-L6-v2
-```
-
-Each document is represented as a:
-
-```text
-384-dimensional dense vector
-```
-
-### Vector Search
-
-Document embeddings are indexed using **FAISS**.
-
-Queries are embedded using the same Sentence Transformer model and compared with document vectors using dense semantic similarity.
-
-### V1 Baseline
-
-| Metric | Result |
-|---|---:|
-| Documents indexed | 5,183 |
-| Embedding dimension | 384 |
-| Queries evaluated | 300 |
-| Top-K | 5 |
-| **Recall@5** | **0.7533** |
-
-A Recall@5 of `0.7533` means that for approximately **75.3% of evaluated queries**, at least one known relevant SciFact document appeared among the five retrieved documents.
-
-This measures retrieval effectiveness, not final RAG answer quality.
-
-### Initial Indexing Observation
-
-On the initial CPU-based development machine, embedding and indexing the 5,183-document SciFact corpus took approximately:
-
-```text
-7 minutes 54 seconds
-```
-
-This provides an initial performance baseline for future scalability experiments.
-
----
-
-# V2.0 — Local Retrieval-Augmented Generation
-
-V2 extends the V1 retriever into a complete local RAG pipeline.
-
-### V2 Pipeline
-
-```text
-Question
-   ↓
-Query Embedding
-   ↓
-FAISS Retrieval
-   ↓
-Top-K Scientific Documents
-   ↓
-Context Construction
-   ↓
-Grounded Prompt
-   ↓
-Local LLM
-   ↓
-Answer + Citations
-```
-
-### Local LLM
-
-V2 uses:
-
-```text
-Qwen3 1.7B
-```
-
-served locally through:
-
-```text
-Ollama
-```
-
-This allows the complete RAG pipeline to run without a paid hosted LLM API.
-
-The LLM is responsible for **generation**.
-
-Retrieval remains a separate component:
-
-```text
-Sentence Transformer + FAISS
-```
-
-This separation makes it possible to independently evaluate retrieval and generation.
-
----
-
-## Grounding Strategy
-
-Retrieved documents are converted into numbered evidence blocks:
-
-```text
-[1]
-Document ID: ...
-Title: ...
-Evidence: ...
-
-[2]
-Document ID: ...
-Title: ...
-Evidence: ...
-```
-
-The generator is instructed to:
-
-1. answer using only retrieved evidence
-2. avoid unsupported claims
-3. cite evidence using `[1]`, `[2]`, etc.
-4. explicitly report when retrieved evidence is insufficient
-5. provide a concise answer and explanation
-
----
-
-## Example V2 Query
-
-### Question
-
-```text
-Does vitamin D reduce the risk of multiple sclerosis?
-```
-
-The highest-ranked retrieved document was:
-
-```text
-Vitamin D and latitude as environmental factors in multiple sclerosis
-```
-
-with similarity:
-
-```text
-0.7421
-```
-
-The local Qwen3 model generated an evidence-based response with numbered citations and appropriately expressed uncertainty about establishing a direct causal relationship.
-
-### Initial Generation Performance
-
-| Component | Result |
-|---|---:|
-| LLM | Qwen3 1.7B |
-| Runtime | Ollama |
-| Hardware | Local CPU |
-| Top-K | 5 |
-| Generation time | **84.31 seconds** |
-
-This latency measurement provides a baseline for future model, hardware, and scalability comparisons.
-
----
-
-# V3.0 — RAG Evaluation & Retrieval Experiments
-
-V3 moves beyond building the RAG pipeline and systematically evaluates how **retrieval depth (Top-K)** affects retrieval effectiveness and downstream RAG behavior.
-
-The central research question is:
-
-> **Does retrieving more documents necessarily produce better RAG answers?**
-
-The experiments demonstrate that higher retrieval recall does **not** automatically translate into higher end-to-end RAG quality.
-
----
-
-## Experiment 1 — Retrieval Depth
-
-Retrieval was evaluated on 300 SciFact queries using:
-
-```text
-K = {1, 3, 5, 10, 20}
-```
-
-### Results
-
-| K | Recall@K | Evaluation Time |
-|---:|---:|---:|
-| 1 | 0.5033 | 6.39 s |
-| 3 | 0.6833 | 6.25 s |
-| 5 | 0.7533 | 6.16 s |
-| 10 | 0.7933 | 6.12 s |
-| 20 | **0.8467** | 6.19 s |
-
-As expected:
-
-```text
-K ↑ → Recall@K ↑
-```
-
-However, Recall@K measures whether relevant evidence is retrieved.
-
-It does not measure whether the LLM successfully identifies and uses that evidence.
-
----
-
-# Experiment 2 — Initial RAG Top-K Pilot
-
-A five-query pilot evaluated:
-
-```text
-K = {1, 3, 5, 10}
-```
-
-producing:
-
-```text
-5 queries × 4 K values = 20 RAG runs
-```
-
-For each run, the experiment recorded:
-
-- query ID
-- K
-- relevant-document retrieval
-- first relevant-document rank
-- retrieval scores
-- context size
-- generation latency
-- citations
-- generated answer
-
-### Pilot Results
-
-| K | Relevant Evidence Retrieved | Avg. Context | Avg. Generation Time | Avg. Citations |
-|---:|---:|---:|---:|---:|
-| 1 | 0.40 | 1,361 | 24.81 s | 0.8 |
-| 3 | 0.60 | 4,051 | 38.10 s | 1.4 |
-| 5 | **1.00** | 6,549 | 43.07 s | 1.4 |
-| 10 | **1.00** | 14,438 | **91.71 s** | 0.8 |
-
-The pilot showed that citation presence alone does not guarantee that the cited evidence actually supports the generated claim.
-
-This motivated explicit groundedness evaluation.
-
----
-
-# Experiment 3 — Groundedness & Citation Evaluation
-
-V3 introduces human-style evaluation of generated answers.
-
-## Groundedness
-
-```text
-2 = substantive claims directly supported by retrieved evidence
-
-1 = partially supported or stronger than the available evidence
-
-0 = central answer unsupported, contradictory, or off-topic
-```
-
-Scores are normalized to the range:
-
-```text
-0–1
-```
-
-## Citation Faithfulness
-
-```text
-2 = cited evidence directly supports the associated claim
-
-1 = cited evidence provides partial or indirect support
-
-0 = citation does not support the claim
-```
-
-## Citation Validity
-
-```text
-1 = citation refers to an actual retrieved document
-
-0 = citation refers to an invalid/nonexistent document
-```
-
-Citation validity and citation faithfulness are deliberately treated as different concepts.
-
-A citation can be syntactically valid while failing to support the claim attributed to it.
-
-## Abstention Correctness
-
-```text
-1 = model appropriately answers when evidence is sufficient
-    or appropriately reports insufficient evidence
-
-0 = model confidently answers despite insufficient evidence
-    or unnecessarily abstains despite adequate evidence
-```
-
----
-
-# Experiment 4 — Stratified RAG Evaluation
-
-To more carefully study the relationship between retrieval and generation, V3 introduces a controlled **stratified RAG experiment**.
-
-Queries were grouped according to the rank of their first known relevant document.
-
-| Stratum | Relevant Document Rank | Interpretation |
-|---|---|---|
-| A | 1–3 | Evidence available at K=3 |
-| B | 4–5 | Evidence first available at K=5 |
-| C | 6–10 | Evidence first available at K=10 |
-| D | Not retrieved in Top-10 | Evidence unavailable for tested K |
-
-Five queries were selected from each stratum.
-
-Therefore:
-
-```text
-4 strata × 5 queries = 20 queries
-```
-
-Each query was evaluated using:
-
-```text
-K = {3, 5, 10}
-```
-
-producing:
-
-```text
-20 queries × 3 retrieval depths = 60 RAG runs
-```
-
-Each run records:
-
-- retrieval success
-- retrieved evidence
-- relevant-document rank
-- context size
-- generation latency
-- generated citations
-- generated answer
-- groundedness
-- citation faithfulness
-- citation validity
-- abstention behavior
-- generation failures
-
----
-
-# Overall V3 Results
-
-| K | Evidence Retrieval* | Groundedness | Citation Faithfulness | Generation Failure | Avg. Generation Time | Avg. Context |
-|---:|---:|---:|---:|---:|---:|---:|
-| 3 | 0.25 | 0.475 | 0.4167 | 0.00 | 47.33 s | 4,252 |
-| **5** | **0.50** | **0.525** | **0.4167** | **0.00** | **48.51 s** | **6,982** |
-| 10 | 0.75 | 0.425 | 0.3750 | 0.15 | 120.84 s | 14,321 |
-
-\*Evidence-retrieval rates in this table come from the intentionally stratified 20-query sample and are **not corpus-level Recall@K values**.
-
-For the current experimental setup, **K=5 provides the strongest observed overall balance** between evidence coverage, groundedness, latency, and reliability.
-
----
-
-# Key V3 Finding
-
-Moving from:
-
-```text
-K=3 → K=5
-```
-
-increased evidence retrieval in the stratified sample:
-
-```text
-0.25 → 0.50
-```
-
-and increased groundedness:
-
-```text
-0.475 → 0.525
-```
-
-while average generation time changed only slightly:
-
-```text
-47.33 s → 48.51 s
-```
-
-However, moving to K=10 increased evidence retrieval while degrading several downstream metrics.
-
-Average generation latency increased:
-
-```text
-48.51 s → 120.84 s
-```
-
-Average context size increased:
-
-```text
-6,982 → 14,321 characters
-```
-
-Groundedness decreased:
-
-```text
-0.525 → 0.425
-```
-
-and the generation failure rate increased to:
-
-```text
-15%
-```
-
-Therefore:
-
-> **Maximizing retrieval recall does not necessarily maximize end-to-end RAG quality.**
-
----
-
-# When Increasing K Helps
-
-Stratum B was designed so that relevant evidence appears at ranks 4–5.
-
-Therefore:
-
-```text
-K=3 → relevant evidence absent
-K=5 → relevant evidence present
-```
-
-Observed groundedness:
-
-```text
-K=3 → 0.40
-K=5 → 0.60
-```
-
-This demonstrates that increasing retrieval depth can improve RAG quality when the additional retrieval introduces genuinely useful evidence.
-
----
-
-# When Increasing K Hurts
-
-For Stratum A, relevant evidence is already present within the first three documents.
-
-Results:
-
-| K | Retrieval | Groundedness | Faithfulness | Failure | Avg. Time |
-|---:|---:|---:|---:|---:|---:|
-| 3 | 1.00 | **0.70** | **0.70** | 0.00 | 42.59 s |
-| 5 | 1.00 | **0.70** | **0.70** | 0.00 | 49.23 s |
-| 10 | 1.00 | 0.50 | 0.50 | 0.20 | 118.69 s |
-
-Increasing K provides no retrieval benefit in this stratum because relevant evidence is already available.
-
-However, K=10:
-
-- reduces groundedness
-- reduces citation faithfulness
-- substantially increases latency
-- introduces generation failures
-
-This provides evidence of **context dilution or context pollution** for the current small local model.
-
----
-
-# Retrieval Success Is Not Sufficient
-
-Stratum C was designed so that relevant evidence first appears at ranks 6–10.
-
-Therefore:
-
-```text
-K=5  → relevant evidence absent
-K=10 → relevant evidence present
-```
-
-Yet groundedness remained:
-
-```text
-0.30 → 0.30
-```
-
-while average generation latency increased substantially.
-
-This demonstrates an important distinction:
-
-> **Retrieving relevant evidence is necessary in many cases, but it is not sufficient to guarantee that the generator will successfully use that evidence.**
-
----
-
-# Toward Adaptive RAG
-
-The V3 results raise a broader question:
-
-> **Why should every query use the same K?**
-
-Some queries may need only:
-
-```text
-K=3
-```
-
-while others may benefit from:
-
-```text
-K=5
-```
-
-and difficult queries may require deeper retrieval, reranking, or abstention.
-
-Instead of:
-
-```text
-K = constant
-```
-
-future versions can investigate:
-
-```text
-K = f(
-    query,
-    retrieval scores,
-    score gaps,
-    retrieval confidence,
-    evidence quality,
-    context cost
-)
-```
-
-Conceptually:
-
-```text
-Question
-   ↓
-Initial Retrieval
-   ↓
-Evidence sufficient?
-   ├── Yes
-   │    ↓
-   │ Generate
-   │
-   └── No
-        ↓
-   Expand Retrieval
-        ↓
-   Rerank / Filter
-        ↓
-   Evidence sufficient?
-        ├── Yes → Generate
-        └── No  → Abstain
-```
-
-This provides the foundation for **adaptive retrieval**.
-
----
-
-# Multi-Objective RAG Optimization
-
-V3 also shows that RAG configuration naturally forms a multi-objective optimization problem.
-
-Possible objectives include:
-
-\[
-\max \; Recall
-\]
-
-\[
-\max \; Groundedness
-\]
-
-\[
-\max \; CitationFaithfulness
-\]
-
-while simultaneously:
-
-\[
-\min \; GenerationLatency
-\]
-
-\[
-\min \; ContextSize
-\]
-
-\[
-\min \; GenerationFailures
-\]
-
-These objectives can conflict.
-
-For example:
-
-```text
-Higher K
-   ↓
-Higher Recall
-```
-
-may also produce:
-
-```text
-Higher K
-   ↓
-Larger Context
-   ↓
-Higher Latency
-   ↓
-More Noise
-   ↓
-Lower Groundedness
-```
-
-This motivates future research using **evolutionary algorithms and multi-objective optimization** to identify efficient RAG configurations and adaptive retrieval policies.
-
-Detailed V3 methodology, per-stratum results, limitations, and experimental artifacts are available in:
-
-```text
-docs/v3-experiments.md
-```
-
----
-
-# Technology Stack
-
-| Component | Technology |
-|---|---|
-| Language | Python 3.11 |
-| Dataset | SciFact |
-| Embeddings | Sentence Transformers |
-| Embedding model | all-MiniLM-L6-v2 |
-| Embedding dimension | 384 |
-| Vector index | FAISS |
-| Local LLM runtime | Ollama |
-| Generator | Qwen3 1.7B |
-| Experiment logging | CSV / JSONL |
-| RAG evaluation | Groundedness, citation faithfulness, abstention |
-| Future distributed processing | Apache Spark / PySpark |
-| Optimization direction | Evolutionary / multi-objective optimization |
-
----
-
-# Repository Structure
-
-```text
-scalable-rag-spark/
-│
-├── README.md
-├── LICENSE
-├── requirements.txt
-├── .env.example
-├── .gitignore
-│
-├── data/
-│   └── index/
-│
-├── docs/
-│   ├── architecture.md
-│   ├── rag-concepts.md
-│   ├── rag-v2.md
-│   ├── research-questions.md
-│   └── v3-experiments.md
-│
-├── results/
-│   ├── baseline_retrieval.txt
-│   ├── experiments.csv
-│   ├── rag_runs.jsonl
-│   ├── topk_experiment.csv
-│   ├── rag_topk_experiment.csv
-│   ├── rag_topk_experiment.jsonl
-│   ├── groundedness_summary.csv
-│   ├── rag_stratified_queries.csv
-│   ├── rag_stratified_experiment.csv
-│   ├── rag_stratified_experiment.jsonl
-│   ├── stratified_summary_by_k.csv
-│   └── stratified_summary_by_group_k.csv
-│
-└── src/
-    ├── config.py
-    ├── load_scifact.py
-    ├── build_index.py
-    ├── retrieve.py
-    ├── evaluate_retrieval.py
-    ├── rag.py
-    ├── evaluate_topk.py
-    ├── evaluate_rag_topk.py
-    ├── prepare_groundedness_evaluation.py
-    ├── analyze_groundedness.py
-    ├── evaluate_rag_stratified.py
-    ├── prepare_stratified_groundedness.py
-    └── analyze_stratified_groundedness.py
-```
-
-Generated vector-index files under `data/index/` are not intended to be committed to Git. They can be reproduced using the indexing pipeline.
-
----
-
-# Running the Project
-
-## 1. Create a Virtual Environment
-
-Windows:
-
-```powershell
-py -3.11 -m venv .venv
-& ".\.venv\Scripts\Activate.ps1"
-```
-
-Install dependencies:
-
-```powershell
-pip install -r requirements.txt
-```
-
----
-
-## 2. Load SciFact
-
-```powershell
-python src\load_scifact.py
-```
-
-Expected:
-
-```text
-Corpus documents: 5,183
-Queries: 1,109
-Qrels: 339
-```
-
----
-
-## 3. Build the FAISS Index
-
-```powershell
-python src\build_index.py
-```
-
-This generates document embeddings and builds the local FAISS index.
-
----
-
-## 4. Test Semantic Retrieval
-
-```powershell
-python src\retrieve.py
-```
-
-Enter a scientific query when prompted.
-
----
-
-## 5. Evaluate Baseline Retrieval
-
-```powershell
-python src\evaluate_retrieval.py
-```
-
-The initial baseline is:
-
-```text
-Recall@5 = 0.7533
-```
-
----
-
-# Running Local RAG
-
-Install Ollama and verify:
-
-```powershell
-ollama --version
-```
-
-Pull the current model:
-
-```powershell
-ollama pull qwen3:1.7b
-```
-
-Verify:
-
-```powershell
-ollama list
-```
-
----
-
-## Configure the Project
-
-Create a local `.env` based on:
-
-```text
-.env.example
-```
-
-For local generation:
-
-```env
-LLM_PROVIDER=ollama
-OLLAMA_MODEL=qwen3:1.7b
-OLLAMA_URL=http://localhost:11434
-```
-
-The `.env` file is excluded from Git and should never be committed.
-
----
-
-## Run RAG
-
-```powershell
-python src\rag.py
-```
-
-The system will:
-
-1. accept a question
-2. embed the question
-3. retrieve Top-K SciFact documents
-4. construct the RAG context
-5. send the grounded prompt to the local LLM
-6. return an answer with citations
-7. log the run
-
-RAG runs are recorded under:
-
-```text
-results/
-```
-
----
-
-# Running V3 Experiments
-
-## Recall@K
-
-```powershell
-python src\evaluate_topk.py
-```
-
-Evaluates:
-
-```text
-K = {1, 3, 5, 10, 20}
-```
-
----
-
-## RAG Top-K Pilot
-
-```powershell
-python src\evaluate_rag_topk.py
-```
-
----
-
-## Prepare Groundedness Evaluation
-
-```powershell
-python src\prepare_groundedness_evaluation.py
-```
-
----
-
-## Analyze Groundedness
-
-```powershell
-python src\analyze_groundedness.py
-```
-
----
-
-## Stratified RAG Experiment
-
-```powershell
-python src\evaluate_rag_stratified.py
-```
-
----
-
-## Prepare Stratified Evaluation
-
-```powershell
-python src\prepare_stratified_groundedness.py
-```
-
----
-
-## Analyze Stratified Results
-
-```powershell
-python src\analyze_stratified_groundedness.py
-```
-
----
-
-# Current Research Directions
-
-V3 established retrieval-depth and groundedness baselines.
-
-Current research directions include:
-
-- adaptive Top-K retrieval
-- retrieval-confidence estimation
-- reranking
-- hybrid retrieval
-- alternative embedding models
-- larger document collections
-- generator comparison
-- multi-objective RAG optimization
-- evolutionary optimization of RAG configurations
-- distributed RAG preprocessing with Apache Spark
-
----
-
-# Scaling Roadmap
 
 ```text
 V1  Semantic Retrieval                         ✅
@@ -1032,36 +57,1330 @@ V2  Local End-to-End RAG                       ✅
         ↓
 V3  RAG Evaluation & Top-K Experiments         ✅
         ↓
-V4  Larger Corpus & Scalability                ← NEXT
+V4  Larger Corpus & Single-Machine Scalability ✅
         ↓
-V5  Apache Spark / Distributed Processing
+V5  Spark Local Parallelism & Architecture     ✅
         ↓
-V6  Million-Scale Retrieval Experiments
+V6  True Distributed / Multi-Worker Spark      ← NEXT
         ↓
-V7  Adaptive & Evolutionary RAG Optimization
+V7  Million-Scale Retrieval Experiments
+        ↓
+V8  Adaptive & Evolutionary RAG Optimization
 ```
-
-The objective is to introduce distributed infrastructure when the workload justifies it rather than adding Spark before it is needed.
 
 ---
 
-# Research Questions
+# System Architecture
 
-The broader project investigates questions such as:
+The current architecture has evolved through several stages.
 
-- How does retrieval effectiveness change as corpus size increases?
-- How do embedding and indexing costs scale with document volume?
-- When does single-machine preprocessing become a bottleneck?
-- How can Apache Spark improve RAG ingestion and embedding pipelines?
-- How should large embedding collections be partitioned and indexed?
-- What trade-offs exist between retrieval quality, latency, and context size?
-- How does Top-K affect RAG groundedness and citation faithfulness?
-- When does additional retrieved context help or hurt generation?
-- Can retrieval confidence determine an adaptive K?
-- How reliably do LLM citations correspond to retrieved evidence?
-- How do local and hosted LLMs compare for RAG workloads?
-- Can evolutionary algorithms optimize RAG configurations?
-- What Pareto trade-offs exist among quality, latency, context size, and resource usage?
+## Local RAG Architecture
+
+```text
+Question
+   ↓
+Sentence Transformer
+   ↓
+Query Embedding
+   ↓
+FAISS
+   ↓
+Top-K Documents
+   ↓
+Prompt Construction
+   ↓
+LLM
+   ↓
+Grounded Answer + Citations
+```
+
+## Spark-Native Embedding Architecture
+
+V5 introduced a Spark-native preprocessing architecture:
+
+```text
+Document Corpus
+      ↓
+Spark DataFrameReader
+      ↓
+Spark Transformations
+      ↓
+Spark Partitions
+      ↓
+Python Workers
+      ↓
+Sentence Transformer / MiniLM
+      ↓
+Document Embeddings
+      ↓
+Vector Index
+      ↓
+Retrieval
+      ↓
+RAG
+```
+
+V6 will extend this architecture from local Spark execution to genuinely distributed worker resources.
+
+---
+
+# Datasets
+
+## SciFact
+
+V1–V3 use the SciFact scientific-document dataset.
+
+The local corpus contains approximately:
+
+```text
+5,183 documents
+```
+
+SciFact provides a manageable benchmark for developing and evaluating:
+
+- semantic retrieval;
+- Top-K retrieval;
+- local RAG;
+- evidence retrieval;
+- groundedness;
+- citation faithfulness;
+- citation validity;
+- abstention behavior.
+
+---
+
+## MS MARCO
+
+V4 and V5 use the BEIR version of **MS MARCO**.
+
+The source corpus contains:
+
+```text
+8,841,823 passages
+```
+
+and approximately:
+
+```text
+509,962 queries
+```
+
+The project uses the MS MARCO validation qrels to construct a controlled scalability benchmark.
+
+---
+
+# Controlled MS MARCO Benchmark
+
+V4 selects:
+
+```text
+300 evaluation queries
+```
+
+using deterministic sampling with:
+
+```text
+random seed = 42
+```
+
+All positively relevant documents for these queries are retained.
+
+Additional documents are deterministic distractors sampled from the full MS MARCO corpus.
+
+The resulting corpora are nested:
+
+```text
+S_1K
+  ⊂
+S_25K
+  ⊂
+S_50K
+  ⊂
+S_100K
+  ⊂
+S_250K
+```
+
+Therefore:
+
+```text
+Same queries
+Same gold documents
+Same embedding model
+Same FAISS architecture
+Same Top-K
+Same hardware
+
+        ↓
+
+Only corpus size changes
+```
+
+This allows corpus-size effects to be studied under controlled conditions.
+
+---
+
+# Embedding Model
+
+The current embedding model is:
+
+```text
+sentence-transformers/all-MiniLM-L6-v2
+```
+
+Embedding dimension:
+
+```text
+384
+```
+
+Embeddings are normalized before indexing.
+
+---
+
+# Vector Search
+
+The current vector index is:
+
+```text
+FAISS IndexFlatIP
+```
+
+Because embeddings are normalized, inner-product ranking corresponds to cosine-similarity ranking.
+
+The use of exact flat search also makes V4 scalability behavior easier to interpret.
+
+---
+
+# V1.0 — Semantic Retrieval
+
+V1 established the basic retrieval pipeline:
+
+```text
+Documents
+   ↓
+Sentence Transformer
+   ↓
+Document Embeddings
+   ↓
+FAISS Index
+   ↓
+Query Embedding
+   ↓
+Top-K Semantic Retrieval
+```
+
+V1 validated:
+
+- Sentence Transformer embedding;
+- FAISS indexing;
+- semantic nearest-neighbor retrieval;
+- document-ID mapping;
+- retrieval over SciFact.
+
+This established the retrieval foundation used by later versions.
+
+---
+
+# V2.0 — Local End-to-End RAG
+
+V2 extended semantic retrieval into a complete RAG pipeline:
+
+```text
+Question
+   ↓
+Retrieve Top-K Documents
+   ↓
+Construct Evidence Context
+   ↓
+LLM
+   ↓
+Evidence-Grounded Answer
+```
+
+V2 added:
+
+- local end-to-end RAG;
+- retrieved-context construction;
+- LLM generation;
+- source citations;
+- abstention behavior when evidence is insufficient.
+
+The central design principle was:
+
+> **Generation should depend on retrieved evidence rather than unsupported model knowledge.**
+
+---
+
+# V3.0 — RAG Evaluation and Retrieval-Depth Experiments
+
+V3 introduced systematic RAG evaluation.
+
+The experiments examine the relationship between:
+
+```text
+Retrieval depth
+        ↓
+Evidence availability
+        ↓
+Context size
+        ↓
+Generation cost
+        ↓
+Groundedness
+        ↓
+Citation quality
+```
+
+---
+
+# V3 Top-K Pilot Experiment
+
+A pilot experiment evaluated:
+
+```text
+K = 1, 3, 5, 10
+```
+
+using five queries per K.
+
+| K | Evidence Retrieval | Groundedness | Citation Faithfulness | Citation Validity | Avg. Generation Time | Avg. Context Characters |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 0.40 | 0.70 | 0.75 | 1.00 | 24.81 s | 1,361 |
+| 3 | 0.60 | 0.70 | 0.70 | 1.00 | 38.10 s | 4,051 |
+| 5 | **1.00** | **0.70** | 0.70 | 1.00 | 43.07 s | 6,549 |
+| 10 | **1.00** | 0.60 | 0.667 | 1.00 | 91.71 s | 14,438 |
+
+These pilot results contain only five queries per K and should not be interpreted as final estimates.
+
+They nevertheless motivated a larger stratified experiment.
+
+---
+
+# V3 Stratified Retrieval Experiment
+
+Queries were divided into four strata based on the rank of the relevant document:
+
+```text
+A = relevant document rank 1–3
+B = relevant document rank 4–5
+C = relevant document rank 6–10
+D = relevant document not found in Top-10
+```
+
+The experiment evaluated:
+
+```text
+K = 3, 5, 10
+```
+
+with:
+
+```text
+60 total RAG runs
+```
+
+## Overall Results
+
+| K | Runs | Evidence Retrieval | Groundedness | Citation Faithfulness | Citation Validity | Generation Failure | Avg. Time |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 20 | 0.25 | 0.475 | 0.417 | 1.00 | 0.00 | 47.33 s |
+| 5 | 20 | 0.50 | **0.525** | 0.417 | 1.00 | 0.00 | 48.51 s |
+| 10 | 20 | **0.75** | 0.425 | 0.375 | 1.00 | **0.15** | **120.84 s** |
+
+The main V3 observation is:
+
+> **Retrieving more documents improves evidence recall but does not necessarily improve end-to-end RAG quality.**
+
+Increasing K from 5 to 10 improved evidence retrieval:
+
+```text
+0.50 → 0.75
+```
+
+but groundedness decreased:
+
+```text
+0.525 → 0.425
+```
+
+while generation time increased substantially:
+
+```text
+48.51 s → 120.84 s
+```
+
+This motivates adaptive retrieval rather than assuming that larger K is always better.
+
+Detailed V3 methodology is available in:
+
+```text
+docs/v3-experiments.md
+```
+
+---
+
+# V4.0 — Larger Corpus and Single-Machine Scalability
+
+V4 extends the project from RAG-quality evaluation to **retrieval-system scalability** using MS MARCO.
+
+The controlled nested benchmark evaluates:
+
+```text
+1K
+25K
+50K
+100K
+250K
+```
+
+documents while preserving the same 300 evaluation queries and relevant documents.
+
+---
+
+# V4 Measured Results
+
+| Documents | Recall@5 | Embedding Time | Throughput | Index Size | Query Latency | Max Observed RSS |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1K | 0.9967 | 27.06 s | 36.96 docs/s | 1.46 MB | 0.027 ms | 611 MB |
+| 25K | 0.9800 | 825.46 s | 30.29 docs/s | 36.62 MB | 1.157 ms | 768 MB |
+| 50K | 0.9533 | 1,629.76 s | 30.68 docs/s | 73.24 MB | 2.569 ms | 887 MB |
+| 100K | 0.9400 | 3,171.49 s | 31.53 docs/s | 146.48 MB | 5.142 ms | 1,235 MB |
+| **250K** | **0.8833** | **10,695.13 s** | **23.38 docs/s** | **366.21 MB** | **14.337 ms** | **1,729 MB** |
+
+At 250K documents:
+
+```text
+Total pipeline time:
+10,706.18 seconds
+
+Document embedding:
+10,695.13 seconds
+
+FAISS index construction:
+0.1399 seconds
+
+300-query retrieval:
+4.30 seconds
+```
+
+Document embedding therefore dominates preprocessing cost.
+
+---
+
+# V4 Embedding Bottleneck
+
+From 1K to 100K, sustained embedding throughput remained approximately:
+
+```text
+30–32 documents/second
+```
+
+At 250K it fell to:
+
+```text
+23.38 documents/second
+```
+
+The 250K embedding workload required approximately:
+
+```text
+2.97 hours
+```
+
+This identifies document embedding as the dominant single-machine scalability bottleneck.
+
+---
+
+# V4 Retrieval-Quality Scaling
+
+Recall@5 declined as increasingly many distractor documents entered the search space:
+
+```text
+1K       0.9967
+25K      0.9800
+50K      0.9533
+100K     0.9400
+250K     0.8833
+```
+
+The queries and relevant documents remain fixed.
+
+Therefore:
+
+> **Larger corpora can make relevant evidence more difficult to retain in the Top-5 even when the retrieval model and evaluation queries remain unchanged.**
+
+From 1K to 250K, Recall@5 decreased by:
+
+```text
+0.1134
+```
+
+or approximately:
+
+```text
+11.34 percentage points
+```
+
+---
+
+# V4 Scaling Projections
+
+Using the five measured scale points, exploratory scaling projections estimate approximately:
+
+| Documents | Projected Embedding Time | Projected Index Size | Projected Query Latency | Projected RSS |
+|---:|---:|---:|---:|---:|
+| 250K | 2.89 h | 366.21 MB | 14.19 ms | 1,776.65 MB |
+| 500K | 5.89 h | 732.42 MB | 28.66 ms | 2,884.66 MB |
+| 1M | 11.89 h | 1,464.84 MB | 57.60 ms | 5,100.67 MB |
+
+These are projections rather than measurements.
+
+Recall@5 is intentionally not projected because retrieval-quality degradation is not assumed to remain linear.
+
+Detailed V4 methodology and results are available in:
+
+```text
+docs/v4-scalability.md
+```
+
+---
+
+# V5.0 — Apache Spark Local Parallelism and Architecture
+
+V5 introduces **Apache Spark** and investigates whether Spark parallelism can address the document-embedding bottleneck identified in V4.
+
+The V5 software environment is:
+
+```text
+Python       3.11.9
+Java         17
+PySpark      3.5.9
+Spark        3.5.9
+Embedding    all-MiniLM-L6-v2
+Dimension    384
+```
+
+---
+
+# V5 Environment Validation
+
+V5 first validates:
+
+```text
+Java 17
+   ↓
+PySpark 3.5.9
+   ↓
+Spark 3.5.9
+   ↓
+Local SparkSession
+   ↓
+Parallel Spark execution
+```
+
+A legacy Spark 2.4.5 installation was discovered through:
+
+```text
+SPARK_HOME=C:\spark
+```
+
+which conflicted with PySpark 3.5.9.
+
+Removing the legacy `SPARK_HOME` setting allowed PySpark to use the matching Spark 3.5.9 libraries.
+
+The final environment successfully passed the Spark smoke test.
+
+---
+
+# V5 Sentence Transformer Worker Validation
+
+MiniLM was then executed inside Spark Python workers.
+
+The smoke test used:
+
+```text
+Documents:  40
+Partitions: 2
+Dimension:  384
+```
+
+All 40 documents returned correct 384-dimensional embeddings.
+
+This verified:
+
+> **Sentence Transformers can execute correctly inside Spark Python workers.**
+
+---
+
+# V5 Uncontrolled Parallelism
+
+The first 1K experiment varied Spark partitions without explicitly controlling PyTorch CPU threads.
+
+| Method | Partitions | Embedding Time | Throughput | Speedup vs V4 |
+|---|---:|---:|---:|---:|
+| V4 direct Python | — | **27.06 s** | **36.96 docs/s** | 1.000x |
+| Spark | 1 | 81.96 s | 12.20 docs/s | 0.330x |
+| Spark | 2 | **70.18 s** | **14.25 docs/s** | **0.386x** |
+| Spark | 4 | 76.14 s | 13.13 docs/s | 0.355x |
+| Spark | 8 | 90.02 s | 11.11 docs/s | 0.301x |
+
+Increasing local Spark worker count did not monotonically improve performance.
+
+---
+
+# V5 Controlled Spark and PyTorch Parallelism
+
+The next experiment explicitly controlled both:
+
+```text
+Spark partitions
+```
+
+and:
+
+```text
+PyTorch threads per worker
+```
+
+The primary configurations were:
+
+```text
+P=1, T=4
+P=2, T=2
+P=4, T=1
+P=8, T=1
+```
+
+where:
+
+```text
+P = Spark partitions
+T = PyTorch threads per worker
+```
+
+---
+
+# V5 Controlled 1K Results
+
+| Spark Partitions | Torch Threads / Worker | Thread Budget | Embedding Time | Throughput | Speedup vs V4 |
+|---:|---:|---:|---:|---:|---:|
+| **1** | **4** | 4 | **55.83 s** | **17.91 docs/s** | **0.485x** |
+| 2 | 2 | 4 | 63.87 s | 15.66 docs/s | 0.424x |
+| 4 | 1 | 4 | 76.42 s | 13.09 docs/s | 0.354x |
+| 8 | 1 | 8 | 84.68 s | 11.81 docs/s | 0.320x |
+
+For approximately the same four-thread CPU budget:
+
+```text
+1 × 4 = 4
+2 × 2 = 4
+4 × 1 = 4
+```
+
+performance became progressively worse as the CPU resources were divided among additional Spark workers.
+
+This suggests:
+
+> **PyTorch intra-worker CPU parallelism is more efficient than excessive Spark-level parallelism on the tested single machine.**
+
+---
+
+# V5 Workload Scaling
+
+The configuration:
+
+```text
+P=2
+T=2
+```
+
+was selected as the primary multi-worker configuration for larger workloads.
+
+## Results
+
+| Documents | V4 Direct Python | Spark Driver-Mediated | Spark-Native |
+|---:|---:|---:|---:|
+| 1K | **27.06 s** | 63.87 s | 60.90 s |
+| 25K | 825.46 s | **~818.46 s** | 837.81 s |
+| 50K | **1,629.76 s** | 1,669.97 s | 1,697.24 s |
+
+At 1K, Spark overhead dominates.
+
+At 25K, Spark approaches performance parity.
+
+At 50K, Spark remains close to the direct-Python baseline but does not provide a material speedup.
+
+---
+
+# V5 Repeatability
+
+Two independent 25K P=2/T=2 driver-mediated runs produced:
+
+```text
+818.1185 s
+818.8053 s
+```
+
+The difference was approximately:
+
+```text
+0.08%
+```
+
+demonstrating excellent run-to-run repeatability.
+
+---
+
+# V5 Spark-Native Ingestion
+
+The initial Spark architecture used:
+
+```text
+JSONL
+  ↓
+Python driver
+  ↓
+Python list
+  ↓
+Spark
+  ↓
+embedding workers
+```
+
+At 50K documents, Spark warned that a serialized task had reached approximately:
+
+```text
+8.5 MB
+```
+
+The architecture was redesigned as:
+
+```text
+JSONL
+  ↓
+Spark DataFrameReader
+  ↓
+Spark transformations
+  ↓
+Spark partitions
+  ↓
+Python embedding workers
+  ↓
+MiniLM
+```
+
+This removes the need to route the full corpus through the Python driver.
+
+---
+
+# V5 Spark-Native Results
+
+| Documents | V4 Direct | Native Embedding | Native Pipeline | Throughput | Embedding Speedup |
+|---:|---:|---:|---:|---:|---:|
+| 1K | **27.06 s** | 60.90 s | 67.54 s | 16.42 docs/s | 0.444x |
+| 25K | **825.46 s** | 837.81 s | 845.70 s | 29.84 docs/s | 0.985x |
+| 50K | **1,629.76 s** | 1,697.24 s | 1,706.07 s | 29.46 docs/s | 0.960x |
+
+Spark-native ingestion improves the distributed architecture but does not make single-node execution faster.
+
+---
+
+# Key V5 Finding
+
+> **Spark local mode provides orchestration and a scalable execution architecture, but it does not create additional physical compute resources.**
+
+The experiments show that:
+
+- small workloads are dominated by Spark and model-startup overhead;
+- increasing Spark worker count can reduce performance;
+- PyTorch internal CPU parallelism can outperform additional Spark workers on fixed hardware;
+- Spark approaches direct-Python performance as workload size increases;
+- no sustained local embedding speedup was observed;
+- Spark-native ingestion eliminates the Python-driver corpus-transfer bottleneck.
+
+This motivates the next stage:
+
+> **Add genuinely additional physical compute resources rather than merely increasing local Spark tasks.**
+
+Detailed V5 methodology and results are available in:
+
+```text
+docs/v5-spark-experiments.md
+```
+
+---
+
+# Main Findings Across V1–V5
+
+The project has now established several experimental findings.
+
+## Finding 1 — Retrieval Depth Has a Tradeoff
+
+V3 shows:
+
+```text
+Higher K
+  ↓
+Better evidence retrieval
+```
+
+but also:
+
+```text
+Higher K
+  ↓
+Larger context
+  ↓
+Higher generation cost
+  ↓
+Potentially lower groundedness
+```
+
+Therefore:
+
+> **More retrieved context is not always better.**
+
+---
+
+## Finding 2 — Corpus Size Affects Retrieval Quality
+
+V4 shows:
+
+```text
+Corpus grows
+  ↓
+More distractors
+  ↓
+Harder semantic retrieval
+  ↓
+Recall@5 decreases
+```
+
+Therefore:
+
+> **Retrieval quality must be evaluated at realistic corpus scale.**
+
+---
+
+## Finding 3 — Embedding Is the Dominant Offline Bottleneck
+
+At 250K documents:
+
+```text
+Embedding:
+~2.97 hours
+
+FAISS index build:
+~0.14 seconds
+```
+
+Therefore:
+
+> **Document embedding dominates the current preprocessing pipeline.**
+
+---
+
+## Finding 4 — Parallel Frameworks Do Not Create Hardware
+
+V5 shows:
+
+```text
+More Spark tasks
+      ≠
+More physical compute
+```
+
+Increasing local Spark worker count can actually reduce performance because of:
+
+- Spark scheduling overhead;
+- Python worker startup;
+- model replication;
+- serialization;
+- nested PyTorch parallelism;
+- CPU contention.
+
+---
+
+## Finding 5 — Data Architecture Matters
+
+The transition:
+
+```text
+Python → Spark
+```
+
+to:
+
+```text
+Storage → Spark
+```
+
+removes a driver-side data-transfer bottleneck and provides the correct architecture for future distributed execution.
+
+---
+
+# V6 — True Distributed / Multi-Worker Spark
+
+V6 will move beyond Spark local mode.
+
+The central research question is:
+
+> **When Spark receives genuinely additional compute resources, how does MiniLM document embedding scale with worker count?**
+
+The proposed strong-scaling experiment holds workload size fixed while increasing actual worker resources:
+
+```text
+1 worker
+   ↓
+2 workers
+   ↓
+4 workers
+```
+
+For \(p\) workers:
+
+\[
+Speedup(p)
+=
+\frac{T_1}
+     {T_p}
+\]
+
+and:
+
+\[
+Efficiency(p)
+=
+\frac{Speedup(p)}
+     {p}
+\]
+
+Primary candidate workloads:
+
+```text
+25K     validation
+100K    primary strong-scaling benchmark
+250K    large distributed benchmark
+```
+
+Optional future workloads:
+
+```text
+500K
+1M
+```
+
+---
+
+# Future Distributed Architecture
+
+```text
+                 Shared Storage
+                       │
+                       ▼
+                  Spark Driver
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+      Worker 1     Worker 2     Worker N
+          │            │            │
+       MiniLM       MiniLM       MiniLM
+          │            │            │
+          └────────────┼────────────┘
+                       ▼
+                Embedding Output
+                       │
+                       ▼
+                 Vector Index
+                       │
+                       ▼
+                    Retrieval
+                       │
+                       ▼
+                      RAG
+```
+
+V6 will distinguish true distributed scaling from local task parallelism.
+
+---
+
+# V7 — Million-Scale Retrieval
+
+After distributed embedding is validated, future experiments can extend the corpus toward:
+
+```text
+500K
+1M
+```
+
+documents.
+
+Potential research questions include:
+
+- distributed embedding throughput;
+- large-index storage;
+- exact versus approximate vector search;
+- FAISS IVF/HNSW alternatives;
+- distributed index construction;
+- retrieval latency;
+- Recall@K degradation;
+- cost/performance tradeoffs.
+
+---
+
+# V8 — Adaptive and Evolutionary RAG Optimization
+
+The project ultimately aims to move beyond fixed configurations.
+
+A future system may optimize:
+
+```text
+Top-K
+worker count
+partition count
+batch size
+threads per worker
+memory allocation
+retrieval architecture
+```
+
+using measured objectives such as:
+
+```text
+latency
+cost
+memory
+retrieval quality
+groundedness
+citation faithfulness
+```
+
+A multi-objective formulation could optimize:
+
+\[
+\min_x
+[
+Latency(x),
+Cost(x),
+Memory(x)
+]
+\]
+
+subject to quality constraints such as:
+
+\[
+Recall@K \geq R_{min}
+\]
+
+and:
+
+\[
+Groundedness \geq G_{min}
+\]
+
+This creates a natural path toward evolutionary and adaptive optimization of RAG systems.
+
+---
+
+# Repository Structure
+
+A simplified project structure is:
+
+```text
+scalable-rag-spark/
+│
+├── README.md
+├── requirements.txt
+├── .gitignore
+│
+├── docs/
+│   ├── v3-experiments.md
+│   ├── v4-scalability.md
+│   └── v5-spark-experiments.md
+│
+├── src/
+│   ├── config.py
+│   ├── load_scifact.py
+│   ├── build_index.py
+│   ├── retrieve.py
+│   ├── rag.py
+│   ├── evaluate_retrieval.py
+│   │
+│   ├── evaluate_topk.py
+│   ├── evaluate_rag_topk.py
+│   ├── prepare_groundedness_evaluation.py
+│   ├── analyze_groundedness.py
+│   ├── evaluate_rag_stratified.py
+│   ├── prepare_stratified_groundedness.py
+│   ├── analyze_stratified_groundedness.py
+│   │
+│   ├── load_msmarco.py
+│   ├── inspect_msmarco_qrels.py
+│   ├── prepare_msmarco_subsets.py
+│   ├── evaluate_msmarco_scaling.py
+│   ├── analyze_v4_scaling.py
+│   │
+│   ├── spark_smoke_test.py
+│   ├── spark_embedding_smoke_test.py
+│   ├── evaluate_spark_embedding.py
+│   ├── evaluate_spark_embedding_v2.py
+│   └── analyze_v5_spark.py
+│
+├── results/
+│   ├── ...
+│   ├── v4_scaling_summary.csv
+│   ├── v4_scaling_projections.csv
+│   ├── v4_embedding_time.png
+│   ├── v4_retrieval_latency.png
+│   ├── v4_index_size.png
+│   ├── v4_memory.png
+│   ├── v4_recall_at_5.png
+│   │
+│   ├── v5_spark_embedding_experiments.csv
+│   ├── v5_spark_thread_experiments.csv
+│   ├── v5_spark_native_ingestion_experiments.csv
+│   ├── v5_parallelism_summary.csv
+│   ├── v5_workload_scaling_summary.csv
+│   ├── v5_architecture_summary.csv
+│   ├── v5_parallelism_1k.png
+│   ├── v5_architecture_comparison.png
+│   ├── v5_speedup_vs_corpus_size.png
+│   └── v5_throughput_vs_corpus_size.png
+│
+└── data/
+    └── v4/
+        ├── msmarco_1k/
+        ├── msmarco_25k/
+        ├── msmarco_50k/
+        ├── msmarco_100k/
+        └── msmarco_250k/
+```
+
+Generated MS MARCO subsets and indexes under:
+
+```text
+data/v4/
+```
+
+are excluded from Git because they are reproducible and potentially large.
+
+---
+
+# Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/BigDataAISystems/scalable-rag-spark.git
+cd scalable-rag-spark
+```
+
+Create a virtual environment.
+
+On Windows:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install dependencies:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+---
+
+# Core Dependencies
+
+The project currently uses:
+
+```text
+sentence-transformers
+faiss-cpu
+numpy
+pandas
+datasets
+python-dotenv
+openai
+tqdm
+requests
+psutil
+matplotlib
+pyspark
+```
+
+V5 uses:
+
+```text
+pyspark==3.5.9
+```
+
+and Java 17.
+
+---
+
+# Spark Environment
+
+Verify Java:
+
+```powershell
+java -version
+```
+
+V5 uses Java 17.
+
+Verify PySpark:
+
+```powershell
+python -c "import pyspark; print(pyspark.__version__)"
+```
+
+Expected:
+
+```text
+3.5.9
+```
+
+Verify Spark:
+
+```powershell
+spark-submit --version
+```
+
+Expected:
+
+```text
+Spark 3.5.9
+```
+
+If an older standalone Spark installation exists, make sure an incompatible `SPARK_HOME` does not override the PySpark installation.
+
+---
+
+# Reproducing V4
+
+Prepare the MS MARCO subsets:
+
+```powershell
+python .\src\prepare_msmarco_subsets.py
+```
+
+Run a scalability experiment:
+
+```powershell
+python .\src\evaluate_msmarco_scaling.py --subset msmarco_1k
+```
+
+Analyze V4:
+
+```powershell
+python .\src\analyze_v4_scaling.py
+```
+
+---
+
+# Reproducing V5
+
+Run the basic Spark smoke test:
+
+```powershell
+python .\src\spark_smoke_test.py
+```
+
+Run the Sentence Transformer worker smoke test:
+
+```powershell
+python .\src\spark_embedding_smoke_test.py
+```
+
+Run a controlled Spark embedding experiment:
+
+```powershell
+python .\src\evaluate_spark_embedding.py --subset msmarco_1k --partitions 2 --torch-threads 2
+```
+
+Run the Spark-native ingestion experiment:
+
+```powershell
+python .\src\evaluate_spark_embedding_v2.py --subset msmarco_25k --partitions 2 --torch-threads 2
+```
+
+Analyze V5:
+
+```powershell
+python .\src\analyze_v5_spark.py
+```
+
+---
+
+# Experimental Methodology
+
+The project follows several principles intended to make results reproducible and interpretable.
+
+## Controlled Variables
+
+Where possible, experiments hold constant:
+
+- evaluation queries;
+- gold documents;
+- embedding model;
+- embedding dimension;
+- retrieval depth;
+- vector-index architecture;
+- random seed;
+- hardware environment.
+
+## Measured vs Projected Results
+
+Measured values and projected values are stored separately.
+
+Projected results are explicitly labeled and are not treated as experimental observations.
+
+## Human Evaluation
+
+V3 groundedness and citation-faithfulness scores use human ratings:
+
+```text
+0
+1
+2
+```
+
+which are normalized to:
+
+```text
+0–1
+```
+
+for aggregate reporting.
+
+## Repeated Measurements
+
+Repeated experiments are retained when useful.
+
+For example, the two 25K Spark runs in V5 are preserved because they demonstrate timing repeatability.
+
+---
+
+# Limitations
+
+Current limitations include:
+
+1. V1–V3 use a relatively small SciFact corpus.
+2. V3 human-scored experiments remain limited in sample size.
+3. V4 uses controlled nested subsets rather than the full MS MARCO corpus.
+4. Only one embedding model has been evaluated.
+5. V4 uses exact FAISS `IndexFlatIP`.
+6. V4 memory measurements represent maximum observed RSS rather than continuous process-wide peak memory.
+7. V5 runs Spark in local mode.
+8. V5 workers share one physical machine.
+9. Driver RSS does not represent complete Spark JVM and worker memory.
+10. GPU embedding has not yet been evaluated.
+11. A true multi-node Spark cluster has not yet been evaluated.
+12. Million-scale embedding and retrieval remain future work.
 
 ---
 
@@ -1071,18 +1390,10 @@ The broader project investigates questions such as:
 
 Completed:
 
-- SciFact loading
+- SciFact ingestion
 - Sentence Transformer embeddings
 - FAISS indexing
-- semantic search
-- Recall@K evaluation
-- experiment logging
-
-Baseline:
-
-```text
-Recall@5 = 0.7533
-```
+- semantic retrieval
 
 ---
 
@@ -1090,165 +1401,147 @@ Recall@5 = 0.7533
 
 Completed:
 
-- context construction
-- grounded prompting
-- local LLM generation
-- Ollama integration
-- Qwen3 1.7B integration
-- numbered source citations
-- RAG run logging
-
-Initial measured generation:
-
-```text
-84.31 seconds
-```
-
-on the initial CPU-only development machine.
+- end-to-end RAG
+- retrieved-context construction
+- LLM generation
+- evidence citations
+- abstention behavior
 
 ---
 
-## v3.0 — RAG Evaluation & Retrieval Experiments
+## v3.0 — RAG Evaluation
 
 Completed:
 
-- Recall@K evaluation over 300 SciFact queries
-- RAG Top-K pilot experiments
+- Top-K retrieval experiments
+- evidence-retrieval analysis
 - groundedness evaluation
 - citation-faithfulness evaluation
-- abstention evaluation
+- citation-validity evaluation
 - stratified retrieval experiment
-- 60-run controlled RAG evaluation
-- context-size measurement
-- generation-latency measurement
 - generation-failure analysis
 
-Retrieval results:
+Key result:
 
-```text
-Recall@1  = 0.5033
-Recall@3  = 0.6833
-Recall@5  = 0.7533
-Recall@10 = 0.7933
-Recall@20 = 0.8467
-```
-
-In the controlled stratified RAG experiment, **K=5 provided the strongest observed balance** between retrieval coverage, groundedness, and generation cost.
-
-The experiments also demonstrated that:
-
-> **Higher retrieval recall does not necessarily produce better end-to-end RAG quality.**
+> Increasing retrieval depth improves evidence availability but does not necessarily improve groundedness or end-to-end RAG quality.
 
 ---
 
-# Future Direction — Larger-Scale RAG
+## v4.0 — Larger Corpus and Single-Machine Scalability
 
-V4 will begin increasing corpus size and measuring how the existing RAG architecture behaves as the workload grows.
+Completed:
 
-The project will progressively evolve toward:
+- MS MARCO integration
+- qrel inspection
+- deterministic 300-query benchmark
+- nested 1K–250K corpora
+- embedding scalability experiments
+- FAISS storage measurements
+- retrieval-latency measurements
+- Recall@5 scaling analysis
+- memory measurements
+- scalability projections
+
+Key result:
+
+> **Document embedding emerged as the dominant single-machine scalability bottleneck.**
+
+At 250K:
 
 ```text
-Large Document Collection
-          ↓
-     Apache Spark
-          ↓
-Distributed Ingestion
-          ↓
-Distributed Preprocessing
-          ↓
-Distributed Chunking
-          ↓
-Embedding Generation
-          ↓
-Vector Index
-          ↓
-Retrieval
-          ↓
-Adaptive RAG
-          ↓
-LLM
+Embedding time       = 10,695.13 s (~2.97 h)
+Embedding throughput = 23.38 docs/s
+FAISS index size     = 366.21 MB
+Query latency        = 14.34 ms
+Recall@5             = 0.8833
+Observed RSS         = 1,729 MB
 ```
-
-Future scalability measurements will include:
-
-- ingestion time
-- preprocessing time
-- embedding time
-- index construction time
-- index size
-- retrieval latency
-- memory consumption
-- generation latency
-- context size
-- groundedness
-- retrieval quality
-
-The longer-term objective is not simply to build another RAG application.
-
-It is to investigate:
-
-> **Scalable and optimized AI-powered data systems for large document collections.**
 
 ---
 
-# Future Direction — Evolutionary Optimization
+## v5.0 — Apache Spark Local Parallelism and Architecture
 
-The V3 experiments show that RAG configuration involves competing objectives.
+Completed:
 
-Future research will investigate evolutionary and multi-objective optimization of variables such as:
+- Java 17 / Spark 3.5.9 environment
+- PySpark 3.5.9 integration
+- Spark smoke testing
+- Sentence Transformer execution inside Spark workers
+- local partition-scaling experiments
+- controlled PyTorch-thread experiments
+- 25K repeatability testing
+- workload scaling through 50K
+- driver-mediated ingestion evaluation
+- Spark-native JSONL ingestion
+- direct Python vs Spark comparison
+- V5 analysis and visualization
 
-- retrieval depth
-- chunk size
-- chunk overlap
-- embedding configuration
-- retrieval thresholds
-- reranking parameters
-- context size
-- Spark configuration
-- resource allocation
+Key findings:
 
-Potential objectives include:
+> **Increasing Spark workers on fixed hardware does not automatically improve embedding performance.**
+
+and:
+
+> **Spark-native ingestion provides the appropriate architecture for distributed execution, but meaningful compute speedup requires additional physical compute resources.**
+
+The best controlled 1K local Spark configuration was:
 
 ```text
-maximize:
-    retrieval quality
-    groundedness
-    citation faithfulness
-
-minimize:
-    latency
-    context size
-    resource usage
-    generation failures
+Spark partitions      = 1
+Torch threads/worker  = 4
+Embedding time        = 55.83 s
+Speedup vs V4         = 0.485x
 ```
 
-This provides a foundation for future research on:
+For P=2/T=2:
 
-- adaptive RAG
-- evolutionary RAG optimization
-- Pareto-optimal RAG configurations
-- distributed RAG optimization
-- resource-aware AI systems
+```text
+             V4 Direct       Spark Native
+
+1K              27.06 s          60.90 s
+25K            825.46 s         837.81 s
+50K          1,629.76 s       1,697.24 s
+```
+
+V5 establishes the experimental foundation for true distributed Spark scaling in V6.
 
 ---
 
-# Project Context
+# Next Milestone — V6
 
-This project is part of **Big Data & AI Systems**, a collection of research and open-source projects exploring:
+V6 will evaluate Spark using **genuinely additional worker resources**.
 
-- Big Data
-- distributed data processing
-- cloud computing
-- data engineering
-- AI-powered data systems
-- Retrieval-Augmented Generation
-- vector search
-- LLM-powered analytics
-- optimization of AI and data systems
+Primary goals:
 
-Organization:
+- establish a one-worker distributed baseline;
+- run 2-worker and 4-worker configurations;
+- measure strong scaling;
+- calculate speedup;
+- calculate parallel efficiency;
+- evaluate distributed embedding throughput;
+- measure data-read and output-write overhead;
+- compare distributed results against V4 and V5;
+- scale toward 100K and 250K documents.
 
-**https://github.com/BigDataAISystems**
+The central question is:
+
+> **How much acceleration does Spark provide when additional Spark workers correspond to genuinely additional physical compute resources?**
+
+---
+
+# Repository
+
+GitHub:
+
+```text
+https://github.com/BigDataAISystems/scalable-rag-spark
+```
+
+Project website:
+
+```text
+https://mebrahimii.github.io/
+```
 
 ---
 
@@ -1256,24 +1549,15 @@ Organization:
 
 **Mahdi Ebrahimi, Ph.D.**  
 Associate Professor of Computer Science  
-California State University, Northridge (CSUN)
+California State University, Northridge
 
-Research interests include **Big Data, large-scale data systems, cloud computing, distributed data processing, optimization, and AI-powered data systems**.
+Research interests include:
 
-Academic website:
-
-**https://mebrahimii.github.io**
-
----
-
-# License
-
-This project is released under the **MIT License**.
-
-See:
-
-```text
-LICENSE
-```
-
-for details.
+- Big Data
+- distributed systems
+- cloud computing
+- AI-powered data systems
+- information retrieval
+- optimization
+- scalable machine learning
+- Retrieval-Augmented Generation

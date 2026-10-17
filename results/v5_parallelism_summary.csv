@@ -1,0 +1,5 @@
+documents,partitions,torch_threads_per_worker,nominal_thread_budget,embedding_time_sec,docs_per_sec,speedup_vs_v4,v4_embedding_time_sec
+1000,1,4,4,55.8272,17.9124,0.4847,27.0573
+1000,2,2,4,63.8697,15.6569,0.4236,27.0573
+1000,4,1,4,76.4189,13.0858,0.3541,27.0573
+1000,8,1,8,84.6806,11.8091,0.3195,27.0573

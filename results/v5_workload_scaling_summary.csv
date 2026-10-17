@@ -1,0 +1,4 @@
+documents,v4_embedding_time_sec,v4_docs_per_sec,driver_mediated_runs,driver_mediated_mean_embedding_sec,driver_mediated_stdev_sec,driver_mediated_speedup_vs_v4,native_runs,native_mean_embedding_sec,native_stdev_sec,native_speedup_vs_v4
+1000,27.0573,36.9586,1,63.8697,0.0,0.4236,1,60.8991,0.0,0.4443
+25000,825.4622,30.2861,2,818.4619,0.4856,1.0086,1,837.8054,0.0,0.9853
+50000,1629.7635,30.6793,1,1669.9672,0.0,0.9759,1,1697.241,0.0,0.9602

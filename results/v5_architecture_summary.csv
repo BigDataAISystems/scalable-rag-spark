@@ -1,0 +1,4 @@
+documents,v4_direct_embedding_sec,driver_mediated_embedding_sec,spark_native_embedding_sec,spark_native_pipeline_sec,driver_vs_v4_speedup,native_embedding_vs_v4_speedup,native_pipeline_vs_v4_speedup,native_vs_driver_embedding_ratio
+1000,27.0573,63.8697,60.8991,67.5431,0.4236,0.4443,0.4006,0.9535
+25000,825.4622,818.4619,837.8054,845.6966,1.0086,0.9853,0.9761,1.0236
+50000,1629.7635,1669.9672,1697.241,1706.0728,0.9759,0.9602,0.9553,1.0163
